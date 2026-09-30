@@ -205,7 +205,7 @@ fun EdmsTheme(content: @Composable () -> Unit) {
  *
  * Applied once at the root rather than per field, so it covers every input.
  */
-fun Modifier.aboveKeyboard(): Modifier = Modifier.imePadding()
+fun Modifier.aboveKeyboard(): Modifier = this.imePadding()
 
 // ── Background decoration ─────────────────────────────────────────────────────
 
