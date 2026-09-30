@@ -34,9 +34,20 @@ STORE_FILE=edms-release.jks
 
 # Strip the base64 wrapper, then confirm it is really a keystore rather than
 # trusting the round trip.
-printf '%s' "$KEYSTORE_B64" | base64 -d > "$STORE_FILE"
+#
+# `-i` plus an explicit whitespace strip matters: a secret that picked up a CR or
+# a stray space in transit makes plain `base64 -d` abort with "invalid input",
+# which is exactly the failure this script was written to replace. The
+# keystore check below is the real gate — it cannot be satisfied by a corrupted
+# or truncated file.
+CLEAN_B64=$(printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]')
+printf '%s' "$CLEAN_B64" | base64 -d -i > "$STORE_FILE" 2>/dev/null || true
+
 if ! keytool -list -keystore "$STORE_FILE" -storepass "$STORE_PASSWORD" >/dev/null 2>&1; then
-  echo "::error::$STORE_FILE did not decode into a readable keystore"
+  echo "::error::the release key did not decode into a readable keystore"
+  echo "received ${#KEYSTORE_B64} chars (${#CLEAN_B64} after whitespace strip); expected a PKCS12 keystore"
+  echo "If the lengths differ, the secret was truncated — re-set EDMS_KEYSTORE_B64 with:"
+  echo "  base64 -w0 edms-release.jks | gh secret set EDMS_KEYSTORE_B64 --repo \$REPO"
   rm -f "$STORE_FILE"
   exit 1
 fi
