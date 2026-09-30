@@ -3,22 +3,16 @@ package com.zidex.edms
 import android.content.Context
 import android.net.Uri
 import android.net.http.SslCertificate
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import android.util.Base64
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.KeyStore
+import com.zidex.edms.data.KeystoreAes
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
@@ -151,7 +145,9 @@ class LinkStore(ctx: Context) {
 
     fun load(): Link? {
         val enc = prefs.getString("token", null) ?: return null
-        val token = runCatching { decrypt(enc) }.getOrNull() ?: return null
+        // KeystoreAes returns null when the payload is corrupt or the key was
+        // replaced (e.g. after a restore onto another device) — same as "no link".
+        val token = KeystoreAes.decrypt(ALIAS, enc)?.takeIf { it.isNotEmpty() } ?: return null
         return Link(
             hosts = prefs.getString("hosts", "")!!.split(',').filter { it.isNotEmpty() },
             port = prefs.getInt("port", 0),
@@ -173,31 +169,7 @@ class LinkStore(ctx: Context) {
 
     fun clear() = prefs.edit().clear().apply()
 
-    private fun key(): SecretKey {
-        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
-            init(
-                KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .build(),
-            )
-        }.generateKey()
-    }
-
-    private fun encrypt(s: String): String {
-        val c = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
-        return Base64.encodeToString(c.iv + c.doFinal(s.toByteArray()), Base64.NO_WRAP)
-    }
-
-    private fun decrypt(s: String): String {
-        val b = Base64.decode(s, Base64.NO_WRAP)
-        val c = Cipher.getInstance("AES/GCM/NoPadding").apply {
-            init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, 0, 12))
-        }
-        return String(c.doFinal(b, 12, b.size - 12))
-    }
+    private fun encrypt(s: String): String = KeystoreAes.encrypt(ALIAS, s)
 
     private companion object {
         const val ALIAS = "edms-link"

@@ -2,8 +2,15 @@ package com.zidex.edms.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.RowScope
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.TableRows
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +43,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -57,6 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.zidex.edms.data.Department
 import androidx.compose.ui.unit.sp
 import com.zidex.edms.data.DocFilter
 import com.zidex.edms.data.Document
@@ -64,6 +73,7 @@ import com.zidex.edms.data.Perm
 import com.zidex.edms.data.Repo
 import com.zidex.edms.data.STATUS_LABELS
 import com.zidex.edms.data.Storage
+import androidx.compose.foundation.layout.fillMaxSize
 
 /** Bottom padding so the last card clears the floating navigation pill. */
 val NavClearance = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 120.dp)
@@ -78,7 +88,7 @@ fun DashboardScreen() {
     val unread = load(u.id) { repo.unreadCount(u) } ?: 0
     val upload = rememberUpload()
 
-    LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Header: title + greeting, round actions (reference: "My Files ⚙")
         item {
             Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -233,6 +243,10 @@ fun DocumentsScreen(initial: DocFilter) {
     val depts = load { repo.departments() }.orEmpty()
     val tags = load { repo.tags() }.orEmpty()
     val docs = load(filter) { repo.documents(u, filter) }
+    // Cards or a table: the table is denser and sortable, which is what a
+    // registry clerk wants when working through a long list. The choice sticks.
+    val prefs = remember { ctx.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+    var table by remember { mutableStateOf(prefs.getBoolean("docsTable", false)) }
     val chip = FilterChipDefaults.filterChipColors(
         containerColor = MaterialTheme.colorScheme.surface, selectedContainerColor = Ink, selectedLabelColor = Color.White,
     )
@@ -240,6 +254,11 @@ fun DocumentsScreen(initial: DocFilter) {
     Column {
         Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("المستندات", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            RoundIconButton(
+                if (table) Icons.Default.ViewAgenda else Icons.Default.TableRows,
+                if (table) "عرض كبطاقات" else "عرض كجدول",
+            ) { table = !table; prefs.edit().putBoolean("docsTable", table).apply() }
+            Spacer(Modifier.width(8.dp))
             if (Perm.can(u, "documents.create")) RoundIconButton(Icons.Default.UploadFile, "رفع ملف", onClick = rememberUpload())
         }
         SearchPill(filter.query, { filter = filter.copy(query = it) }, "بحث بالعنوان أو الرقم أو المحتوى…", Modifier.padding(16.dp, 10.dp))
@@ -262,7 +281,8 @@ fun DocumentsScreen(initial: DocFilter) {
         when {
             docs == null -> Loading()
             docs.isEmpty() -> Empty("لا توجد مستندات مطابقة")
-            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            table -> DocTable(docs, depts, Modifier.weight(1f))
+            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { Text("${docs.size} مستند", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(docs, key = { it.id }) { DocRow(it) }
             }
@@ -292,6 +312,128 @@ fun DocRow(d: Document) {
     }
 }
 
+/**
+ * Denser registry view: sortable columns instead of cards. Sorting is done in
+ * memory on the already-permission-filtered list, so it can never surface a
+ * document the user is not allowed to see.
+ */
+private enum class DocColumn(val label: String) {
+    TITLE("المستند"), NUMBER("الرقم"), TYPE("النوع"), DEPT("القسم"),
+    STATUS("الحالة"), SIZE("الحجم"), DATE("التاريخ"),
+}
+
+@Composable
+fun DocTable(docs: List<Document>, depts: List<Department>, modifier: Modifier = Modifier) {
+    var sortBy by remember { mutableStateOf(DocColumn.DATE) }
+    var asc by remember { mutableStateOf(false) }
+
+    fun sort(list: List<Document>): List<Document> {
+        val cmp: Comparator<Document> = when (sortBy) {
+            DocColumn.TITLE -> compareBy(String.CASE_INSENSITIVE_ORDER) { it: Document -> it.title }
+            DocColumn.NUMBER -> compareBy(nullsLast()) { it: Document -> it.docNumber }
+            DocColumn.TYPE -> compareBy(nullsLast()) { it: Document -> it.docType }
+            DocColumn.DEPT -> compareBy(nullsLast(naturalOrder())) { it: Document -> it.departmentId }
+            DocColumn.STATUS -> compareBy { it: Document -> it.status }
+            DocColumn.SIZE -> compareBy { it: Document -> it.fileSize }
+            DocColumn.DATE -> compareBy { it: Document -> it.docDate ?: it.createdAt }
+        }
+        return if (asc) list.sortedWith(cmp) else list.sortedWith(cmp.reversed())
+    }
+
+    val total = docs.sumOf { it.fileSize }
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("${docs.size} مستند · ${formatBytes(total)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Default.UnfoldMore, "عكس الترتيب", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("ترتيب", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        // Header row doubles as the sort control.
+        Row(
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DocColumn.entries.forEach { c ->
+                val active = c == sortBy
+                Row(
+                    Modifier.weight(columnWeight(c)).clickable { if (active) asc = !asc else { sortBy = c; asc = true } }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        c.label,
+                        fontSize = 12.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                    if (active) Icon(
+                        if (asc) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+        val rows = remember(docs, sortBy, asc) { sort(docs) }
+        LazyColumn(Modifier.imeScrollSafe(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 120.dp)) {
+            items(rows, key = { it.id }) { d ->
+                val name = depts.firstOrNull { it.id == d.departmentId }?.name ?: "—"
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { Nav.go(Screen.DocView(d.id)) }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(Modifier.weight(columnWeight(DocColumn.TITLE)), verticalAlignment = Alignment.CenterVertically) {
+                        FileBadge(d.mimeType, d.fileExt, 26)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                d.title, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            if (d.confidential) Text("سري", fontSize = 10.sp, color = Color(0xFF7C3AED))
+                        }
+                    }
+                    Cell(d.docNumber, DocColumn.NUMBER)
+                    Cell(d.docType, DocColumn.TYPE)
+                    Cell(name, DocColumn.DEPT)
+                    Pill(STATUS_LABELS[d.status] ?: d.status, statusColor(d.status), Modifier.weight(columnWeight(DocColumn.STATUS)))
+                    Cell(formatBytes(d.fileSize), DocColumn.SIZE)
+                    Cell(shortDate(d.docDate ?: d.createdAt).take(10), DocColumn.DATE)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+    }
+}
+
+/** Title gets the wide column; everything else is a fixed slice. */
+private fun columnWeight(c: DocColumn) = when (c) {
+    DocColumn.TITLE -> 2.6f
+    DocColumn.NUMBER -> 1f
+    DocColumn.TYPE -> 1.2f
+    DocColumn.DEPT -> 1.2f
+    DocColumn.STATUS -> 1.1f
+    DocColumn.SIZE -> 0.9f
+    DocColumn.DATE -> 1f
+}
+
+@Composable
+private fun RowScope.Cell(text: String?, column: DocColumn) {
+    Text(
+        text ?: "—",
+        modifier = Modifier.weight(columnWeight(column)).padding(horizontal = 4.dp),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
 /** Stored thumbnail for images/PDFs, otherwise the colour-coded type badge. */
 @Composable
 fun Thumb(d: Document, size: Int) {
@@ -306,7 +448,7 @@ fun ReportsScreen() {
     val ctx = LocalContext.current
     val u = Session.user ?: return
     val st = load { Repo.get(ctx).stats(u) } ?: return Loading()
-    LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Section("حسب الحالة") { SegmentedBar(st.byStatus.map { (k, n) -> n to statusColor(k) }); Spacer(Modifier.height(8.dp)); st.byStatus.forEach { (k, n) -> Bar(STATUS_LABELS[k] ?: k, n, st.total, statusColor(k)) } } }
         item { Section("حسب القسم") { st.byDepartment.forEach { (k, n) -> Bar(k, n, st.total, Brand) } } }
         item { Section("حسب النوع") { st.byType.forEach { (k, n) -> Bar("$k — ${formatBytes(st.typeSizes[k] ?: 0)}", n, st.total, Color(0xFF7C3AED)) { Nav.go(Screen.Documents(DocFilter(docType = k))) } } } }

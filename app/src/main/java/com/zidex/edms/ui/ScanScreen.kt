@@ -153,7 +153,7 @@ fun ScanScreen() {
             Text("اكتُشفت $blankCount صفحة فارغة", Modifier.weight(1f), color = Color(0xFFD97706), fontSize = 13.sp)
             OutlinedButton({ pages.removeAll { it.blank } }) { Text("حذف الفارغة") }
         }
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(Modifier.weight(1f).imeScrollSafe(), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             itemsIndexed(pages, key = { _, p -> p.uri.toString() }) { i, p ->
                 val shown = load(p.uri, p.rotation, mode) {
                     Enhance.apply(if (p.rotation == 0) p.preview else Enhance.rotate(p.preview, p.rotation), mode)

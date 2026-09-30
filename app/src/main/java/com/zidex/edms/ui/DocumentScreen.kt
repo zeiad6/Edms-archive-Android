@@ -95,7 +95,7 @@ fun DocumentScreen(id: Int) {
         if (uri != null) scope.act("تم رفع الإصدار الجديد") { repo.addVersion(u, id, Storage.importUri(ctx, uri), "") }
     }
 
-    LazyColumn(contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.imeScrollSafe(), contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text(d.title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {

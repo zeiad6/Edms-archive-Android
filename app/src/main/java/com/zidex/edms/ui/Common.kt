@@ -15,7 +15,6 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,10 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,9 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zidex.edms.data.User
@@ -72,6 +66,9 @@ object Session {
     var tick by mutableIntStateOf(0)
         private set
     var message by mutableStateOf<String?>(null)
+
+    /** The drifting background motif; the settings screen can switch it off. */
+    var backdrop by mutableStateOf(true)
 
     fun refresh() { tick++ }
     fun say(m: String) { message = m }
@@ -111,29 +108,7 @@ fun errorText(e: Throwable) = if (e is UserError) e.message ?: "خطأ" else "ح
 // Visual language: Dribbble «File Manager Mobile App: My Files» (Keitoto) — soft grey
 // canvas, white 20dp cards with hairline borders, colour-coded file badges — plus a
 // floating dark navigation pill and a dark hero login.
-val Brand = Color(0xFF4F46E5)
-val Ink = Color(0xFF111827)
-val CanvasGray = Color(0xFFF4F5F7)
-val Hairline = Color(0xFFE8EAEE)
-val Muted = Color(0xFF6B7280)
-val CardShape = RoundedCornerShape(20.dp)
-
-@Composable
-fun EdmsTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val scheme = if (dark) darkColorScheme(
-        primary = Color(0xFF818CF8), secondary = Color(0xFF34D399), background = Color(0xFF0B0B12),
-        surface = Color(0xFF15151F), surfaceVariant = Color(0xFF1E1E2A), outlineVariant = Color(0xFF26263A),
-    )
-    else lightColorScheme(
-        primary = Brand, secondary = Color(0xFF16A34A), background = CanvasGray, surface = Color.White,
-        surfaceVariant = Color(0xFFEEF0F4), onSurface = Ink, onSurfaceVariant = Muted, outlineVariant = Hairline,
-    )
-    MaterialTheme(colorScheme = scheme) {
-        // Arabic UI: right-to-left regardless of the device language.
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl, content = content)
-    }
-}
+// The palette itself (Brand, Ink, CardShape, EdmsTheme) now lives in Appearance.kt.
 
 fun parseColor(hex: String?): Color = runCatching { Color(android.graphics.Color.parseColor(hex ?: "#64748b")) }.getOrDefault(Color.Gray)
 

@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +35,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Visibility
@@ -42,6 +46,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -81,6 +87,8 @@ import com.zidex.edms.Link
 import com.zidex.edms.LinkStore
 import com.zidex.edms.R
 import com.zidex.edms.data.Passwords
+import com.zidex.edms.data.SavedLogin
+import com.zidex.edms.data.CredentialStore
 import com.zidex.edms.data.Repo
 import com.zidex.edms.remote.RemoteActivity
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +116,7 @@ fun LoginScreen(pendingPair: String?, onPairHandled: () -> Unit) {
         ),
     ) {
         Column(
-            Modifier.fillMaxSize().background(LoginBg).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().background(LoginBg).verticalScroll(rememberScrollState()).imeScrollSafe(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
@@ -199,16 +207,34 @@ private fun Binders(modifier: Modifier) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LocalLogin() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Opt-in credential saving. The store is AES-GCM encrypted under an Android
+    // Keystore key, so this holds nothing readable from the app's own storage.
+    val creds = remember { CredentialStore(ctx) }
+    var savedList by remember { mutableStateOf(emptyList<SavedLogin>()) }
+    var rememberMe by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     // First-run hint, only while the seeded admin still has the default password.
     val firstRun = load { Repo.get(ctx).users().let { it.size == 1 && it[0].mustChangePassword } }
+
+    LaunchedEffect(Unit) {
+        savedList = creds.all()
+        // A previously saved login pre-fills both fields, so a returning user
+        // only has to press the button.
+        val last = creds.last()
+        if (last != null) {
+            username = last.username
+            password = last.password
+            rememberMe = true
+        }
+    }
 
     Text("يعمل النظام بالكامل على الهاتف: قاعدة بيانات وملفات محلية، دون حاجة لحاسوب أو إنترنت.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(12.dp))
@@ -224,13 +250,68 @@ private fun LocalLogin() {
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = { IconButton({ show = !show }) { Icon(if (show) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } },
     )
+    Row(
+        Modifier.fillMaxWidth().padding(top = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Lock, null, Modifier.size(18.dp), tint = Color(0xFF9CA3AF))
+        Spacer(Modifier.size(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text("حفظ بيانات الدخول", fontSize = 14.sp, color = Color.White)
+            Text("مشفّرة داخل الهاتف بمفتاح Keystore", fontSize = 11.sp, color = Color(0xFF9CA3AF))
+        }
+        Switch(
+            checked = rememberMe,
+            onCheckedChange = { on ->
+                rememberMe = on
+                if (!on) {
+                    creds.clear(); savedList = emptyList()
+                } else if (username.isNotBlank() && password.isNotBlank()) {
+                    scope.launch {
+                        withContext(Dispatchers.IO) { creds.save(username, password) }
+                        savedList = creds.all()
+                    }
+                }
+            },
+        )
+    }
+    if (savedList.isNotEmpty()) {
+        FlowRow(
+            Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            savedList.forEach { entry ->
+                InputChip(
+                    selected = username == entry.username,
+                    onClick = { username = entry.username; password = entry.password; rememberMe = true },
+                    label = { Text(entry.username, fontSize = 12.sp) },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Default.Close, "حذف ${entry.username}",
+                            Modifier.size(15.dp).clickable {
+                                creds.remove(entry.username)
+                                savedList = creds.all()
+                                if (username == entry.username) { password = ""; rememberMe = false }
+                            },
+                        )
+                    },
+                )
+            }
+        }
+    }
     Button(
         enabled = !busy && username.isNotBlank() && password.isNotBlank(),
         onClick = {
             busy = true
             scope.launch {
                 try {
-                    Session.user = withContext(Dispatchers.IO) { Repo.get(ctx).login(username, password) }
+                    val signedIn = withContext(Dispatchers.IO) { Repo.get(ctx).login(username, password) }
+                    if (rememberMe) {
+                        // Written only after the password actually works.
+                        withContext(Dispatchers.IO) { creds.save(username, password) }
+                        savedList = creds.all()
+                    }
+                    Session.user = signedIn
                 } catch (e: Exception) {
                     Session.say(errorText(e))
                 } finally {

@@ -384,7 +384,12 @@ class Repo private constructor(private val ctx: Context) {
 
     // ───────────── users (admin) ─────────────
 
-    fun saveUser(u: User, id: Int?, name: String, username: String, email: String, role: String, departmentId: Int?, jobTitle: String, active: Boolean) = unique {
+    /**
+     * [initialPassword] is only read when creating a user, and only when the
+     * admin typed one: it replaces the shared 12345678 default. Still forces a
+     * change on first login, so knowing it is never enough to skip that.
+     */
+    fun saveUser(u: User, id: Int?, name: String, username: String, email: String, role: String, departmentId: Int?, jobTitle: String, active: Boolean, initialPassword: String? = null) = unique {
         guard(u, "users.manage")
         if (name.isBlank() || username.isBlank()) throw UserError("الاسم واسم المستخدم مطلوبان")
         if (!Regex("^[A-Za-z0-9._-]{3,32}$").matches(username.trim())) throw UserError("اسم المستخدم: أحرف إنجليزية وأرقام و . _ - (3 أحرف على الأقل)")
@@ -394,7 +399,9 @@ class Repo private constructor(private val ctx: Context) {
             "role" to role, "department_id" to departmentId, "job_title" to jobTitle.ifBlank { null }, "active" to active,
         )
         if (id == null) {
-            v.put("password_hash", Passwords.hash(Passwords.DEFAULT_PASSWORD)); v.put("must_change_password", 1)
+            val pw = initialPassword?.takeIf { it.isNotBlank() } ?: Passwords.DEFAULT_PASSWORD
+            if (pw.length < 8) throw UserError("كلمة المرور الأولى: 8 أحرف على الأقل")
+            v.put("password_hash", Passwords.hash(pw)); v.put("must_change_password", 1)
             audit(u, "user.create", "user", db.insert("users", v).toInt(), "إنشاء مستخدم: $username")
         } else {
             db.update("users", v, "id = ?", arrayOf("$id"))

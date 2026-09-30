@@ -44,10 +44,13 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Unit tests
-        # Passwords/scrypt, version compare and the storage-key guard are pure
-        # JVM tests — they run here rather than on a device.
-        run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest
+      - name: Unit tests (every variant's JVM tests)
+        # Passwords/scrypt, version compare, the storage-key guard and the new
+        # credential store are pure JVM tests — they run here, not on a device.
+        run: ./gradlew --no-daemon --stacktrace test
+
+      - name: Lint
+        run: ./gradlew --no-daemon --stacktrace :app:lintDebug
 
       - name: Assemble debug APK
         run: ./gradlew --no-daemon --stacktrace :app:assembleDebug

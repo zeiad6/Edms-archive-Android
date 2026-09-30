@@ -25,6 +25,7 @@ import com.zidex.edms.ui.EdmsTheme
 import com.zidex.edms.ui.HomeShell
 import com.zidex.edms.ui.LoginScreen
 import com.zidex.edms.ui.Session
+import com.zidex.edms.ui.aboveKeyboard
 import kotlinx.coroutines.delay
 
 /**
@@ -41,7 +42,15 @@ class MainActivity : ComponentActivity() {
         pendingPair = intent?.data?.toString()
         setContent {
             EdmsTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                // aboveKeyboard() on the root is the single fix that covers every
+                // input in the app: the window draws edge to edge, so without it a
+                // field near the bottom sat behind the soft keyboard. Scrollable
+                // screens add imeNestedScroll on top so a focused field further up
+                // the page is scrolled into view.
+                Surface(
+                    Modifier.fillMaxSize().aboveKeyboard(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
                     val user = Session.user
                     when {
                         user == null -> LoginScreen(pendingPair) { pendingPair = null }

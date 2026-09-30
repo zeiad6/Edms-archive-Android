@@ -5,20 +5,25 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Row
@@ -61,13 +66,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +84,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zidex.edms.data.DocFilter
 import com.zidex.edms.data.DocMeta
@@ -106,6 +112,9 @@ sealed class Screen(val title: String) {
     data object Reports : Screen("التقارير")
     data object Settings : Screen("الإعدادات")
 }
+
+/** One drawer entry: destination, icon, unread count. */
+data class Item(val screen: Screen, val icon: ImageVector, val badge: Int = 0)
 
 /** Tiny back stack — the app has one level of drill-down at most, a nav library is not worth it. */
 object Nav {
@@ -143,66 +152,85 @@ fun HomeShell() {
     val unread = load(user.id) { Repo.get(ctx).unreadCount(user) } ?: 0
     var logout by remember { mutableStateOf(false) }
     val atRoot = Nav.stack.size == 1
+    LaunchedEffect(Unit) { Session.backdrop = readBackdrop(ctx) }
 
     BackHandler(enabled = drawer.isOpen || !atRoot) {
         if (drawer.isOpen) scope.launch { drawer.close() } else Nav.back()
     }
 
-    val items = buildList<Triple<Screen, ImageVector, Boolean>> {
-        add(Triple(Screen.Dashboard, Icons.Default.Home, true))
-        add(Triple(Screen.Documents(), Icons.Default.Description, true))
-        add(Triple(Screen.Scan, Icons.Default.DocumentScanner, Perm.can(user, "documents.create")))
-        add(Triple(Screen.Approvals, Icons.Default.TaskAlt, true))
-        add(Triple(Screen.Notifications, Icons.Default.Notifications, true))
-        add(Triple(Screen.Reports, Icons.Default.BarChart, Perm.can(user, "reports.view")))
-        add(Triple(Screen.Folders, Icons.Default.Folder, true))
-        add(Triple(Screen.Departments, Icons.Default.Apartment, true))
-        add(Triple(Screen.Tags, Icons.AutoMirrored.Filled.Label, Perm.can(user, "tags.manage")))
-        add(Triple(Screen.DocTypes, Icons.Default.Category, Perm.can(user, "doc-types.manage")))
-        add(Triple(Screen.Templates, Icons.Default.ViewQuilt, true))
-        add(Triple(Screen.Users, Icons.Default.People, Perm.can(user, "users.view")))
-        add(Triple(Screen.Audit, Icons.Default.History, Perm.can(user, "audit.view")))
-        add(Triple(Screen.Trash, Icons.Default.Delete, Perm.can(user, "trash.view")))
-        add(Triple(Screen.Settings, Icons.Default.Settings, true))
-    }.filter { it.third }
+    // Grouped so the drawer reads as three short sections instead of fifteen
+    // equally-weighted pills. `badge` is the unread count, 0 when there is none.
+
+    val mainItems = listOf(
+        Item(Screen.Dashboard, Icons.Default.Home),
+        Item(Screen.Documents(), Icons.Default.Description),
+        Item(Screen.Scan, Icons.Default.DocumentScanner),
+        Item(Screen.Approvals, Icons.Default.TaskAlt),
+        Item(Screen.Notifications, Icons.Default.Notifications, unread),
+    )
+    val manageItems = buildList {
+        if (Perm.can(user, "reports.view")) add(Item(Screen.Reports, Icons.Default.BarChart))
+        add(Item(Screen.Folders, Icons.Default.Folder))
+        add(Item(Screen.Departments, Icons.Default.Apartment))
+        if (Perm.can(user, "tags.manage")) add(Item(Screen.Tags, Icons.AutoMirrored.Filled.Label))
+        if (Perm.can(user, "doc-types.manage")) add(Item(Screen.DocTypes, Icons.Default.Category))
+        add(Item(Screen.Templates, Icons.Default.ViewQuilt))
+        if (Perm.can(user, "users.view")) add(Item(Screen.Users, Icons.Default.People))
+    }
+    val systemItems = buildList {
+        if (Perm.can(user, "audit.view")) add(Item(Screen.Audit, Icons.Default.History))
+        if (Perm.can(user, "trash.view")) add(Item(Screen.Trash, Icons.Default.Delete))
+        add(Item(Screen.Settings, Icons.Default.Settings))
+    }
+
+    val pick: (Screen) -> Unit = { target -> Nav.root(target); scope.launch { drawer.close() } }
 
     ModalNavigationDrawer(
         drawerState = drawer,
         drawerContent = {
-            ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.background) {
-                Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp)) {
-                    Row(Modifier.card().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(user.name, user.avatarColor, 46)
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(user.name, fontWeight = FontWeight.Bold)
-                            Text(com.zidex.edms.data.ROLE_LABELS[user.role] ?: user.role, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    items.forEach { (s, icon, _) ->
-                        NavigationDrawerItem(
-                            label = { Text(s.title) }, icon = { Icon(icon, null) },
-                            selected = screen::class == s::class,
-                            onClick = { Nav.root(s); scope.launch { drawer.close() } },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = Ink, selectedTextColor = Color.White, selectedIconColor = Color.White,
-                            ),
-                        )
-                    }
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                    NavigationDrawerItem(
-                        label = { Text("تسجيل الخروج") }, icon = { Icon(Icons.AutoMirrored.Filled.Logout, null) }, selected = false,
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+                // Cap the width so on tablets the drawer stays a drawer instead of
+                // becoming the whole screen (it was overflowing and clipping icons).
+                modifier = Modifier.widthIn(max = 320.dp),
+            ) {
+                Column(
+                    Modifier.fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                        .padding(horizontal = 12.dp),
+                ) {
+                    DrawerHeader(user)
+                    Spacer(Modifier.height(14.dp))
+
+                    DrawerGroup("الرئيسية", mainItems, screen, onPick = pick)
+                    Spacer(Modifier.height(6.dp))
+                    DrawerGroup("الإدارة", manageItems, screen, onPick = pick)
+                    Spacer(Modifier.height(6.dp))
+                    DrawerGroup("النظام", systemItems, screen, onPick = pick)
+
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(6.dp))
+
+                    DrawerRow(
+                        icon = Icons.AutoMirrored.Filled.Logout,
+                        label = "تسجيل الخروج",
+                        selected = false,
                         onClick = { logout = true },
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(10.dp))
                     Credits()
+                    Spacer(Modifier.height(16.dp))
                 }
             }
         },
     ) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            // Decoration sits under the content, so cards keep their contrast.
+            ArchiveBackdrop(Modifier.matchParentSize(), enabled = Session.backdrop)
+            Column(Modifier.fillMaxSize().statusBarsPadding().aboveKeyboard()) {
                 // Dashboard and Documents draw their own large headers (reference layout).
                 if (screen !is Screen.Dashboard && screen !is Screen.Documents) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -247,6 +275,107 @@ fun HomeShell() {
         scope.act { Repo.get(ctx).audit(user, "auth.logout", "user", user.id, "تسجيل الخروج") }
         Session.user = null
         Nav.root(Screen.Dashboard)
+    }
+}
+
+
+/** Drawer identity card: avatar, name, role — tinted by the account's own colour. */
+@Composable
+private fun DrawerHeader(user: com.zidex.edms.data.User) {
+    val accent = parseColor(user.avatarColor)
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(accent.copy(alpha = 0.22f), MaterialTheme.colorScheme.surfaceContainerHigh),
+                ),
+            )
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box {
+            Avatar(user.name, user.avatarColor, 46)
+            // A ring keyed to the account colour: the one place the user's own
+            // colour is used as identity rather than as a badge.
+            Box(
+                Modifier.matchParentSize().clip(CircleShape)
+                    .border(1.5.dp, accent.copy(alpha = 0.55f), CircleShape),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(user.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+            Text(
+                com.zidex.edms.data.ROLE_LABELS[user.role] ?: user.role,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawerGroup(title: String, items: List<Item>, current: Screen, onPick: (Screen) -> Unit) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 14.dp, bottom = 4.dp, top = 2.dp),
+    )
+    items.forEach { DrawerRow(it.icon, it.screen.title, current::class == it.screen::class, { onPick(it.screen) }, it.badge) }
+}
+
+/**
+ * One drawer row. The old version used a Material NavigationDrawerItem with a
+ * full-width pill container, which at 15 entries produced oversized blocks whose
+ * rounded corners visually collided. This is a compact 46dp row with a small
+ * leading indicator instead, and it takes its colours from the theme so it works
+ * in both schemes (the old one hard-coded a near-black container and white text,
+ * which vanished in light mode).
+ */
+@Composable
+private fun DrawerRow(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    badge: Int = 0,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier.fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clip(shape)
+            .background(if (selected) scheme.primaryContainer else Color.Transparent)
+            .then(if (selected) Modifier.border(1.dp, scheme.primary.copy(alpha = 0.25f), shape) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp)
+            .height(46.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(30.dp).clip(RoundedCornerShape(10.dp))
+                .background(if (selected) scheme.primary.copy(alpha = 0.18f) else scheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant, modifier = Modifier.size(18.dp)) }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            label,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) scheme.onPrimaryContainer else scheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (badge > 0) {
+            Box(
+                Modifier.size(20.dp).clip(CircleShape).background(scheme.error),
+                contentAlignment = Alignment.Center,
+            ) { Text(if (badge > 9) "9+" else "$badge", color = scheme.onError, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+        }
     }
 }
 

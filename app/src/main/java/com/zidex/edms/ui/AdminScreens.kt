@@ -40,6 +40,21 @@ import com.zidex.edms.data.Repo
 import com.zidex.edms.data.STATUS_LABELS
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import com.zidex.edms.data.CredentialStore
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.clickable
 
 @Composable
 fun AuditScreen() {
@@ -54,7 +69,7 @@ fun AuditScreen() {
         when {
             rows == null -> Loading()
             rows.isEmpty() -> Empty("لا توجد سجلات")
-            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(rows, key = { it.id }) { a ->
                     ClickRow(onClick = { if (a.entityType == "document" && a.entityId != null) Nav.go(Screen.DocView(a.entityId)) }) {
                         Column {
@@ -87,7 +102,7 @@ fun TrashScreen() {
         when {
             docs == null -> Loading()
             docs.isEmpty() -> Empty("سلة المحذوفات فارغة")
-            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(docs, key = { it.id }) { d ->
                     Section(d.title) {
                         Text("حُذف في ${shortDate(d.deletedAt)} · ${STATUS_LABELS[d.status]}", fontSize = 12.sp)
@@ -118,7 +133,14 @@ fun SettingsScreen() {
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> restoreUri = uri }
 
-    LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // Appearance + saved-logins controls. The theme choice is global state, so it
+    // applies immediately rather than on the next screen.
+    val mode by rememberThemeMode()
+    val creds = remember { CredentialStore(ctx) }
+    var savedLogins by remember { mutableStateOf(emptyList<com.zidex.edms.data.SavedLogin>()) }
+    LaunchedEffect(Unit) { savedLogins = creds.all() }
+
+    LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Section("حسابي") {
                 KeyValue("الاسم", u.name)
@@ -127,6 +149,65 @@ fun SettingsScreen() {
                 var change by remember { mutableStateOf(false) }
                 if (change) ChangePasswordForm(forced = false) { change = false }
                 else TextButton({ change = true }) { Text("تغيير كلمة المرور") }
+            }
+        }
+        item {
+            Section("المظهر") {
+                ThemeMode.entries.forEach { m ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { setThemeMode(ctx, m) }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            when (m) {
+                                ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                ThemeMode.LIGHT -> Icons.Default.LightMode
+                                ThemeMode.DARK -> Icons.Default.DarkMode
+                            },
+                            null, Modifier.size(20.dp),
+                            tint = if (m == mode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(m.label, fontWeight = if (m == mode) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.weight(1f))
+                        if (m == mode) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 8.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("زخرفة الخلفية", fontWeight = FontWeight.Medium)
+                        Text("تدرّجات خفيفة تتحرك ببطء وتتبع إصبعك", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(Session.backdrop, { setBackdrop(ctx, it) })
+                }
+            }
+        }
+        item {
+            Section("بيانات الدخول المحفوظة") {
+                if (savedLogins.isEmpty()) {
+                    Text("لا توجد بيانات دخول محفوظة. فعّل «حفظ بيانات الدخول» في شاشة الدخول.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(
+                        "مشفّرة بمفتاح Android Keystore لا يمكن استخراجه. اضغط حذف لإزالتها.",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    savedLogins.forEach { entry ->
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Person, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(10.dp))
+                            Text(entry.username, Modifier.weight(1f))
+                            IconButton({
+                                creds.remove(entry.username)
+                                savedLogins = creds.all()
+                                ctx.toast("تم حذف ${entry.username}")
+                            }) { Icon(Icons.Default.Delete, "حذف") }
+                        }
+                    }
+                    if (savedLogins.size > 1) TextButton({
+                        creds.clear(); savedLogins = emptyList(); ctx.toast("تم حذف كل البيانات المحفوظة")
+                    }) { Text("حذف الكل") }
+                }
             }
         }
         if (Perm.can(u, "settings.manage")) item {

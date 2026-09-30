@@ -7,6 +7,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.zidex.edms.data.CredentialStore
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,7 +74,7 @@ private fun <T> ManageList(
         when {
             items == null -> Loading()
             items.isEmpty() -> Empty("لا توجد عناصر")
-            else -> LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 180.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 180.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(items, key = key) { item ->
                     ClickRow(onClick = { if (canManage) editing = item to true else onOpen?.invoke(item) }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -98,7 +108,7 @@ private fun ColorRow(color: String, onPick: (String) -> Unit) {
 private fun EditDialog(title: String, onDismiss: () -> Unit, onSave: () -> Unit, content: @Composable () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss, title = { Text(title) },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()).imeScrollSafe(), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } },
         confirmButton = { TextButton(onSave) { Text("حفظ") } },
         dismissButton = { TextButton(onDismiss) { Text("إلغاء") } },
     )
@@ -273,16 +283,59 @@ fun UsersScreen() {
             var dept by remember { mutableStateOf(x?.departmentId) }
             var job by remember { mutableStateOf(x?.jobTitle.orEmpty()) }
             var active by remember { mutableStateOf(x?.active ?: true) }
-            EditDialog(if (x == null) "مستخدم جديد" else "تعديل المستخدم", close, { scope.act("تم الحفظ", close) { repo.saveUser(u, x?.id, name, username, email, role, dept, job, active) } }) {
-                OutlinedTextField(name, { name = it }, label = { Text("الاسم الكامل") })
-                OutlinedTextField(username, { username = it }, label = { Text("اسم المستخدم") })
-                OutlinedTextField(email, { email = it }, label = { Text("البريد (اختياري)") })
-                OutlinedTextField(job, { job = it }, label = { Text("المسمى الوظيفي") })
+            var password by remember { mutableStateOf("") }
+            var showPw by remember { mutableStateOf(false) }
+            var keepLogin by remember { mutableStateOf(true) }
+            val creds = remember { CredentialStore(ctx) }
+            EditDialog(
+                if (x == null) "مستخدم جديد" else "تعديل المستخدم",
+                close,
+                {
+                    scope.act("تم الحفظ", close) {
+                        repo.saveUser(u, x?.id, name, username, email, role, dept, job, active, password.ifBlank { null })
+                        // Registration data on this device only — encrypted, and
+                        // only for a brand-new account, never on an edit.
+                        if (x == null && keepLogin && password.isNotBlank()) {
+                            withContext(Dispatchers.IO) { creds.save(username, password) }
+                        }
+                    }
+                },
+            ) {
+                OutlinedTextField(name, { name = it }, label = { Text("الاسم الكامل") }, singleLine = true)
+                OutlinedTextField(username, { username = it }, label = { Text("اسم المستخدم") }, singleLine = true)
+                OutlinedTextField(email, { email = it }, label = { Text("البريد (اختياري)") }, singleLine = true)
+                OutlinedTextField(job, { job = it }, label = { Text("المسمى الوظيفي") }, singleLine = true)
                 Picker("الدور", ROLE_LABELS.map { it.key to it.value }, role, { role = it ?: "staff" }, allowNone = false)
                 Picker("القسم", depts.map { it.id to it.name }, dept, { dept = it })
                 Row(verticalAlignment = Alignment.CenterVertically) { Text("الحساب مفعّل", Modifier.weight(1f)); Switch(active, { active = it }) }
-                if (x == null) Text("كلمة المرور الأولى: 12345678 — تُطلب تغييرها عند أول دخول.", fontSize = 12.sp)
-                else TextButton({ resetFor = x; close() }) { Text("إعادة تعيين كلمة المرور") }
+                if (x == null) {
+                    OutlinedTextField(
+                        password, { password = it },
+                        label = { Text("كلمة المرور الأولى (اختياري)") },
+                        singleLine = true,
+                        visualTransformation = if (showPw) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton({ showPw = !showPw }) {
+                                Icon(if (showPw) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                            }
+                        },
+                    )
+                    Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Lock, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("حفظ بيانات تسجيل الدخول", fontSize = 14.sp)
+                            Text("لتعبئتها تلقائياً في شاشة الدخول · مشفّرة بـ Keystore", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(keepLogin, { keepLogin = it })
+                    }
+                    Text(
+                        if (password.isBlank()) "بلم كلمة مرور: 12345678 — تُطلب تغييرها عند أول دخول."
+                        else "8 أحرف على الأقل، وتُطلب تغييرها عند أول دخول.",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else TextButton({ resetFor = x; close() }) { Text("إعادة تعيين كلمة المرور") }
             }
         },
         onDelete = { x -> scope.act("تم الحذف") { repo.deleteUser(u, x.id) } },
