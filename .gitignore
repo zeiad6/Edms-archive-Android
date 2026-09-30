@@ -1,0 +1,53 @@
+# ── Gradle / Android build output ────────────────────────────────────────────
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.cxx/
+*.hprof
+
+# ── Local machine config (contains absolute SDK paths) ──────────────────────
+local.properties
+
+# ── Signing material: never in git, never in the repo, never in a workflow ──
+# The release key is the only thing that can update an installed app, so it
+# lives in GitHub Actions secrets and nowhere else.
+keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# Belt and braces: a token pasted into a workflow or a source file by accident
+# should never be committable.
+*.env
+.env
+.env.*
+secrets.properties
+google-services.json
+service-account*.json
+
+# ── IDE / OS ─────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+
+# ── Reverse-engineering scratch from the desktop port ────────────────────────
+# jadx/ghidra output and the desktop's ONNX models are not part of the Android
+# app — the app uses Play services' unbundled ML models. Keeping them out of the
+# repository also keeps the recovered desktop source out of it.
+ghidra_out/
+jadx_key_sources/
+jadx_out/
+models_fixed/
+shaders_src/
+tools/

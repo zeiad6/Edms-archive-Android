@@ -1,0 +1,102 @@
+name: build
+
+# Every push and PR is built here, so a broken APK never reaches a release tag.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Assemble + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache the Android SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/transforms-*
+            ~/.gradle/caches/build-cache-*
+            ~/.android
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Unit tests
+        # Passwords/scrypt, version compare and the storage-key guard are pure
+        # JVM tests — they run here rather than on a device.
+        run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Assemble release APK (R8 + resource shrinking)
+        # Unsigned unless the signing secrets below exist: the key is never
+        # stored in the repository, only in the environment.
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+        env:
+          EDMS_KEYSTORE: ${{ secrets.EDMS_KEYSTORE }}
+          EDMS_STORE_PASSWORD: ${{ secrets.EDMS_STORE_PASSWORD }}
+          EDMS_KEY_ALIAS: ${{ secrets.EDMS_KEY_ALIAS }}
+          EDMS_KEY_PASSWORD: ${{ secrets.EDMS_KEY_PASSWORD }}
+
+      - name: Summarise APKs
+        run: |
+          set -euo pipefail
+          echo "### Output" >> "$GITHUB_STEP_SUMMARY"
+          for f in app/build/outputs/apk/*/*.apk; do
+            [ -e "$f" ] || continue
+            printf '| `%s` | %s |\n' "$(basename "$f")" \
+              "$(du -h "$f" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "### Obfuscation check" >> "$GITHUB_STEP_SUMMARY"
+          # A release DEX that still mentions the original package is not
+          # obfuscated — this is the check that keeps the promise honest.
+          apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          unzip -p "$apk" 'classes*.dex' > /tmp/release.dex || true
+          if grep -qa 'com/zidex/edms' /tmp/release.dex; then
+            echo "FAIL: original package names are still present in the release DEX" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "PASS: no com.zidex.edms class names in the release DEX" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload the R8 mapping (needed to read any release crash)
+        # Never a release asset: the mapping turns an obfuscated stack trace
+        # back into source names, so it stays inside a 90-day artifact.
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90

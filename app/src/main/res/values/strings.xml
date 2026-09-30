@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">أرشيف</string>
+    <string name="tagline">نظام الأرشفة الإلكتروني — تطبيق الجوال</string>
+    <string name="version_label">الإصدار %1$s</string>
+
+    <string name="pair_intro">اربط الهاتف بحاسوب «أرشيف»: من الحاسوب افتح الإعدادات ← النظام ← «ربط تطبيق الجوال»، فعّل الخدمة واضغط «إنشاء رمز اقتران جديد»، ثم امسح الرمز هنا.</string>
+    <string name="scan_qr">مسح رمز الاقتران</string>
+    <string name="paste_hint">أو الصق رابط الاقتران edms://pair?…</string>
+    <string name="paste_link">اقتران بالرابط</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="check_update">التحقق من التحديثات</string>
+    <string name="pair">اقتران</string>
+    <string name="pairing">جارٍ الاقتران…</string>
+    <string name="pair_invalid">رابط الاقتران غير صالح</string>
+    <string name="pair_failed">فشل الاقتران</string>
+    <string name="pair_confirm_title">الاقتران بهذا الحاسوب؟</string>
+    <string name="pair_confirm_body">الحاسوب: %1$s\nالعناوين:\n%2$s\n\nاقترن فقط إذا أنشأت هذا الرمز بنفسك من حاسوبك.</string>
+    <string name="connecting">جارٍ الاتصال بـ %1$s…</string>
+    <string name="unreachable">تعذّر الوصول إلى %1$s. تأكد أن البرنامج يعمل على الحاسوب، وأن خدمة ربط الجوال مفعّلة، وأن الهاتف على الشبكة نفسها أو أن عنوان الإنترنت مضبوط.</string>
+    <string name="qr_unavailable">ماسح الرموز غير متاح — الصق رابط الاقتران بدلاً منه</string>
+
+    <string name="scan_document">مسح مستند بالكاميرا</string>
+    <string name="choose_file">اختيار ملف من الجهاز</string>
+    <string name="scanner_unavailable">ماسح المستندات يتطلب خدمات Google Play المحدّثة</string>
+    <string name="download_failed">فشل التنزيل</string>
+    <string name="saved_to">حُفظ في: %1$s</string>
+
+    <string name="menu_scan">المسح بالكاميرا</string>
+    <string name="menu_reload">تحديث الصفحة</string>
+    <string name="menu_about">حول التطبيق</string>
+    <string name="unpair">إلغاء الاقتران</string>
+    <string name="unpair_confirm">إلغاء الاقتران بهذا الحاسوب؟ ستحتاج رمز اقتران جديداً للاتصال مرة أخرى.</string>
+
+    <string name="update_title">تحديث متوفر (%1$s)</string>
+    <string name="update_body">يتوفر إصدار جديد من التطبيق.</string>
+    <string name="update_install">تنزيل وتثبيت</string>
+    <string name="later">لاحقاً</string>
+    <string name="update_none">أنت تستخدم أحدث إصدار</string>
+    <string name="update_failed">تعذّر التحقق من التحديثات</string>
+    <string name="update_no_apk">الإصدار %1$s لا يحتوي ملف APK بعد</string>
+    <string name="update_downloading">جارٍ تنزيل التحديث…</string>
+    <string name="update_allow_install">اسمح للتطبيق بتثبيت التحديثات ثم أعد المحاولة</string>
+
+    <string name="developed_by">تم تطوير البرنامج بواسطة</string>
+    <string name="dev_name" translatable="false">Zidex</string>
+    <string name="dev_email" translatable="false">z30432981@gmail.com</string>
+    <string name="dev_tiktok_url" translatable="false">https://www.tiktok.com/@ghost.7784</string>
+    <string name="dev_youtube_url" translatable="false">https://youtube.com/@idea-784-w7d</string>
+    <string name="dev_mail_desc">بريد المطور</string>
+    <string name="dev_tiktok_desc">حساب المطور على تيك توك</string>
+    <string name="dev_youtube_desc">قناة المطور على يوتيوب</string>
+</resources>

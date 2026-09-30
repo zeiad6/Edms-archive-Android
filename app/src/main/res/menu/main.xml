@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_scan" android:title="@string/menu_scan" android:showAsAction="ifRoom" android:icon="@android:drawable/ic_menu_camera" />
+    <item android:id="@+id/menu_reload" android:title="@string/menu_reload" android:showAsAction="never" />
+    <item android:id="@+id/menu_update" android:title="@string/check_update" android:showAsAction="never" />
+    <item android:id="@+id/menu_about" android:title="@string/menu_about" android:showAsAction="never" />
+    <item android:id="@+id/menu_unpair" android:title="@string/unpair" android:showAsAction="never" />
+</menu>

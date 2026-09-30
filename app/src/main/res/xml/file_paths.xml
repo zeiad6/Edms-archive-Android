@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- desktop-link downloads -->
+    <external-files-path name="downloads" path="Download/" />
+    <!-- local archive files (open / share a document) -->
+    <files-path name="storage" path="storage/" />
+</paths>

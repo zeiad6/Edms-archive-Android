@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TikTok logo: black note with the cyan/red offset glow of the brand mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp" android:height="32dp" android:viewportWidth="24" android:viewportHeight="24">
+    <group android:translateX="-0.7" android:translateY="-0.7">
+        <path android:fillColor="#25F4EE"
+            android:pathData="M16.6,5.82A4.28,4.28 0,0 1,15.54 3h-3.09v12.4a2.59,2.59 0,1 1,-1.84 -2.48V9.74a5.87,5.87 0,1 0,4.93 5.8V9.01a7.35,7.35 0,0 0,4.3 1.38V7.3a4.29,4.29 0,0 1,-3.24 -1.48z" />
+    </group>
+    <group android:translateX="0.7" android:translateY="0.7">
+        <path android:fillColor="#FE2C55"
+            android:pathData="M16.6,5.82A4.28,4.28 0,0 1,15.54 3h-3.09v12.4a2.59,2.59 0,1 1,-1.84 -2.48V9.74a5.87,5.87 0,1 0,4.93 5.8V9.01a7.35,7.35 0,0 0,4.3 1.38V7.3a4.29,4.29 0,0 1,-3.24 -1.48z" />
+    </group>
+    <path android:fillColor="#000000"
+        android:pathData="M16.6,5.82A4.28,4.28 0,0 1,15.54 3h-3.09v12.4a2.59,2.59 0,1 1,-1.84 -2.48V9.74a5.87,5.87 0,1 0,4.93 5.8V9.01a7.35,7.35 0,0 0,4.3 1.38V7.3a4.29,4.29 0,0 1,-3.24 -1.48z" />
+</vector>
