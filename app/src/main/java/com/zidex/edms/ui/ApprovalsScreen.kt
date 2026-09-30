@@ -56,7 +56,7 @@ fun ApprovalsScreen() {
         when {
             list == null -> Loading()
             list.isEmpty() -> Empty("لا توجد طلبات موافقة")
-            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(list, key = { it.id }) { ApprovalRow(it, compact = false) }
             }
         }
@@ -116,7 +116,7 @@ fun NotificationsScreen() {
     when {
         list == null -> Loading()
         list.isEmpty() -> Empty("لا توجد إشعارات")
-        else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(list, key = { it.id }) { n ->
                 ClickRow(onClick = { n.documentId?.let { Nav.go(Screen.DocView(it)) } }) {
                     Column {

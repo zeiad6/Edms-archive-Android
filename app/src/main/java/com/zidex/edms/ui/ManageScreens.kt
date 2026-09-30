@@ -74,7 +74,7 @@ private fun <T> ManageList(
         when {
             items == null -> Loading()
             items.isEmpty() -> Empty("لا توجد عناصر")
-            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 180.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            else -> LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 180.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(items, key = key) { item ->
                     ClickRow(onClick = { if (canManage) editing = item to true else onOpen?.invoke(item) }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -108,7 +108,7 @@ private fun ColorRow(color: String, onPick: (String) -> Unit) {
 private fun EditDialog(title: String, onDismiss: () -> Unit, onSave: () -> Unit, content: @Composable () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss, title = { Text(title) },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()).imeScrollSafe(), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() } },
         confirmButton = { TextButton(onSave) { Text("حفظ") } },
         dismissButton = { TextButton(onDismiss) { Text("إلغاء") } },
     )

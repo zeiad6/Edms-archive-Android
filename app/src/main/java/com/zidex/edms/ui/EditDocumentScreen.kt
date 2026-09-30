@@ -71,7 +71,7 @@ fun EditDocumentScreen(id: Int?, stored: Storage.Stored?, prefill: DocMeta?) {
         )
     }
 
-    Column(Modifier.verticalScroll(rememberScrollState()).imeScrollSafe().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         stored?.let {
             Text("الملف: ${it.originalName} · ${formatBytes(it.size)} · ${it.pages} صفحة", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

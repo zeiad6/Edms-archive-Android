@@ -14,8 +14,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.imeNestedScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -194,25 +192,20 @@ fun EdmsTheme(content: @Composable () -> Unit) {
  * `enableEdgeToEdge()` in MainActivity means the window no longer resizes for
  * the IME, so a focused field near the bottom used to sit *behind* the keyboard
  * with no way to scroll to it. `imePadding()` shrinks this container to the
- * space above the keyboard, and `imeNestedScroll()` lets a scrolling parent
- * bring the focused field into view when it is off-screen.
+ * space above the keyboard, which is all that is needed: the layout re-measures
+ * when the IME appears, so every field in the app — dialogs included — ends up
+ * in the space above it.
  *
- * Applied at the root of every screen rather than per field, so it covers
- * every input in the app including dialogs.
+ * This deliberately does NOT use `Modifier.imeNestedScroll()`. That modifier is
+ * documented to *expand* the IME on a downward scroll and dismiss it on an
+ * upward one, which is the right behaviour for a chat log and completely wrong
+ * here: flinging any list to its end popped the keyboard open with nothing
+ * focused, in every screen. Scrolling must never summon the keyboard in this
+ * app, so only the layout inset is used.
+ *
+ * Applied once at the root rather than per field, so it covers every input.
  */
-@OptIn(ExperimentalLayoutApi::class)
-fun Modifier.aboveKeyboard(scrollable: Boolean = true): Modifier {
-    val base = Modifier.imePadding()
-    val nested = if (scrollable) Modifier.imeScrollSafe() else Modifier
-    return this.then(base).then(nested)
-}
-
-/**
- * `imeNestedScroll()` is still experimental in this Compose version, so the
- * opt-in lives here once instead of on every scroll container.
- */
-@OptIn(ExperimentalLayoutApi::class)
-fun Modifier.imeScrollSafe(): Modifier = this.imeNestedScroll()
+fun Modifier.aboveKeyboard(): Modifier = Modifier.imePadding()
 
 // ── Background decoration ─────────────────────────────────────────────────────
 

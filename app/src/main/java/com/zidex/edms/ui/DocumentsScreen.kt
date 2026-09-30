@@ -89,7 +89,7 @@ fun DashboardScreen() {
     val unread = load(u.id) { repo.unreadCount(u) } ?: 0
     val upload = rememberUpload()
 
-    LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Header: title + greeting, round actions (reference: "My Files ⚙")
         item {
             Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -283,7 +283,7 @@ fun DocumentsScreen(initial: DocFilter) {
             docs == null -> Loading()
             docs.isEmpty() -> Empty("لا توجد مستندات مطابقة")
             table -> DocTable(docs, depts, Modifier.weight(1f))
-            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { Text("${docs.size} مستند", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(docs, key = { it.id }) { DocRow(it) }
             }
@@ -380,7 +380,7 @@ fun DocTable(docs: List<Document>, depts: List<Department>, modifier: Modifier =
             }
         }
         val rows = remember(docs, sortBy, asc) { sort(docs) }
-        LazyColumn(Modifier.imeScrollSafe(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 120.dp)) {
+        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 120.dp)) {
             items(rows, key = { it.id }) { d ->
                 val name = depts.firstOrNull { it.id == d.departmentId }?.name ?: "—"
                 Row(
@@ -449,7 +449,7 @@ fun ReportsScreen() {
     val ctx = LocalContext.current
     val u = Session.user ?: return
     val st = load { Repo.get(ctx).stats(u) } ?: return Loading()
-    LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Section("حسب الحالة") { SegmentedBar(st.byStatus.map { (k, n) -> n to statusColor(k) }); Spacer(Modifier.height(8.dp)); st.byStatus.forEach { (k, n) -> Bar(STATUS_LABELS[k] ?: k, n, st.total, statusColor(k)) } } }
         item { Section("حسب القسم") { st.byDepartment.forEach { (k, n) -> Bar(k, n, st.total, Brand) } } }
         item { Section("حسب النوع") { st.byType.forEach { (k, n) -> Bar("$k — ${formatBytes(st.typeSizes[k] ?: 0)}", n, st.total, Color(0xFF7C3AED)) { Nav.go(Screen.Documents(DocFilter(docType = k))) } } } }

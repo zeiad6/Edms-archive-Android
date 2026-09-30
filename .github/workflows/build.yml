@@ -55,15 +55,22 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Assemble release APK (R8 + resource shrinking)
-        # Unsigned unless the signing secrets below exist: the key is never
-        # stored in the repository, only in the environment.
-        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+      - name: Stage the release signing key
+        # From the repository secret only. app/build.gradle.kts then signs the
+        # release build, so the APK this workflow publishes is installable.
+        run: ./.github/scripts/restore-key.sh
         env:
-          EDMS_KEYSTORE: ${{ secrets.EDMS_KEYSTORE }}
+          EDMS_KEYSTORE_B64: ${{ secrets.EDMS_KEYSTORE_B64 }}
           EDMS_STORE_PASSWORD: ${{ secrets.EDMS_STORE_PASSWORD }}
           EDMS_KEY_ALIAS: ${{ secrets.EDMS_KEY_ALIAS }}
           EDMS_KEY_PASSWORD: ${{ secrets.EDMS_KEY_PASSWORD }}
+
+      - name: Assemble release APK (R8 + resource shrinking + signed)
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Remove the signing material
+        if: always()
+        run: rm -f edms-release.jks keystore.properties
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
@@ -84,6 +91,9 @@ jobs:
             app/build/outputs/mapping/release/mapping.txt
             app/build/outputs/mapping/release/configuration.txt
           retention-days: 90
+
+      - name: Check the release APK is signed
+        run: ./.github/scripts/verify-release.sh
 
       - name: Check the release APK is actually obfuscated
         # The package name `com.zidex.edms` is public by construction (manifest,

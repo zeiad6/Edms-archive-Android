@@ -231,7 +231,7 @@ fun HomeShell() {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // Decoration sits under the content, so cards keep their contrast.
             ArchiveBackdrop(Modifier.matchParentSize(), enabled = Session.backdrop)
-            Column(Modifier.fillMaxSize().statusBarsPadding().aboveKeyboard()) {
+            Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 // Dashboard and Documents draw their own large headers (reference layout).
                 if (screen !is Screen.Dashboard && screen !is Screen.Documents) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {

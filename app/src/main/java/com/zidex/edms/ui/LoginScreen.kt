@@ -116,7 +116,7 @@ fun LoginScreen(pendingPair: String?, onPairHandled: () -> Unit) {
         ),
     ) {
         Column(
-            Modifier.fillMaxSize().background(LoginBg).verticalScroll(rememberScrollState()).imeScrollSafe(),
+            Modifier.fillMaxSize().background(LoginBg).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(

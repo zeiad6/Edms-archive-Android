@@ -69,7 +69,7 @@ fun AuditScreen() {
         when {
             rows == null -> Loading()
             rows.isEmpty() -> Empty("لا توجد سجلات")
-            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(rows, key = { it.id }) { a ->
                     ClickRow(onClick = { if (a.entityType == "document" && a.entityId != null) Nav.go(Screen.DocView(a.entityId)) }) {
                         Column {
@@ -102,7 +102,7 @@ fun TrashScreen() {
         when {
             docs == null -> Loading()
             docs.isEmpty() -> Empty("سلة المحذوفات فارغة")
-            else -> LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            else -> LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(docs, key = { it.id }) { d ->
                     Section(d.title) {
                         Text("حُذف في ${shortDate(d.deletedAt)} · ${STATUS_LABELS[d.status]}", fontSize = 12.sp)
@@ -140,7 +140,7 @@ fun SettingsScreen() {
     var savedLogins by remember { mutableStateOf(emptyList<com.zidex.edms.data.SavedLogin>()) }
     LaunchedEffect(Unit) { savedLogins = creds.all() }
 
-    LazyColumn(Modifier.imeScrollSafe(), contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(contentPadding = NavClearance, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Section("حسابي") {
                 KeyValue("الاسم", u.name)

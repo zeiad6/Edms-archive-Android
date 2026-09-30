@@ -31,30 +31,13 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Fail early if the signing secrets are missing
-        # A release APK that is not signed with the existing key cannot update
-        # an installed app, so this stops before burning a build.
+      - name: Stage the release signing key
         env:
-          KEYSTORE_B64: ${{ secrets.EDMS_KEYSTORE_B64 }}
-        run: |
-          if [ -z "${KEYSTORE_B64}" ]; then
-            echo "::error::EDMS_KEYSTORE_B64 is not set. Add the base64 release key to the repository secrets before tagging."
-            exit 1
-          fi
-
-      - name: Reassemble the release key
-        run: |
-          set -euo pipefail
-          echo "${{ secrets.EDMS_KEYSTORE_B64 }}" | base64 -d > keystore.properties.b64.dec
-          # keystore.properties is gitignored, so it exists only for this job.
-          {
-            echo "storeFile=edms-release.jks"
-            echo "storePassword=${{ secrets.EDMS_STORE_PASSWORD }}"
-            echo "keyAlias=${{ secrets.EDMS_KEY_ALIAS }}"
-            echo "keyPassword=${{ secrets.EDMS_KEY_PASSWORD }}"
-          } > keystore.properties
-          mv keystore.properties.b64.dec edms-release.jks
-          chmod 600 edms-release.jks keystore.properties
+          EDMS_KEYSTORE_B64: ${{ secrets.EDMS_KEYSTORE_B64 }}
+          EDMS_STORE_PASSWORD: ${{ secrets.EDMS_STORE_PASSWORD }}
+          EDMS_KEY_ALIAS: ${{ secrets.EDMS_KEY_ALIAS }}
+          EDMS_KEY_PASSWORD: ${{ secrets.EDMS_KEY_PASSWORD }}
+        run: ./.github/scripts/restore-key.sh
 
       - name: Assemble signed release APK
         run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
