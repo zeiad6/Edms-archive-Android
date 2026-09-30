@@ -62,6 +62,26 @@ jobs:
           EDMS_KEY_ALIAS: ${{ secrets.EDMS_KEY_ALIAS }}
           EDMS_KEY_PASSWORD: ${{ secrets.EDMS_KEY_PASSWORD }}
 
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload the R8 mapping (needed to read any release crash)
+        # Never a release asset: the mapping turns an obfuscated stack trace
+        # back into source names, so it stays inside a 90-day artifact.
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping
+          path: |
+            app/build/outputs/mapping/release/mapping.txt
+            app/build/outputs/mapping/release/configuration.txt
+          retention-days: 90
+
       - name: Check the release APK is actually obfuscated
         # A release DEX that still carries `Lcom/zidex/edms/…;` type
         # descriptors is not obfuscated, whatever the mapping file claims. This
@@ -95,21 +115,3 @@ jobs:
             echo "Reference strings still present (expected — the package name is public):"
             strings -a /tmp/release.dex | grep -a -o 'com\.zidex\.edms[A-Za-z0-9_.]*' | sort -u | head -10 || echo "  (none)"
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload APKs
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-
-      - name: Upload the R8 mapping (needed to read any release crash)
-        # Never a release asset: the mapping turns an obfuscated stack trace
-        # back into source names, so it stays inside a 90-day artifact.
-        uses: actions/upload-artifact@v4
-        with:
-          name: r8-mapping
-          path: app/build/outputs/mapping/release/mapping.txt
-          retention-days: 90
