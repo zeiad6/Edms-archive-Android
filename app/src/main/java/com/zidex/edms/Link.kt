@@ -64,6 +64,10 @@ object Pins {
         return sha256Hex(x509.encoded) == fingerprint
     }
 
+    // Not the usual "trust this one host" custom trust manager: it trusts exactly
+    // one certificate — the desktop's, identified by the SHA-256 the pairing QR
+    // carried — and nothing else, so there is no CA path to get wrong.
+    @Suppress("CustomX509TrustManager")
     private fun trustManager(fingerprint: String) = object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) =
             throw CertificateException("client auth not supported")

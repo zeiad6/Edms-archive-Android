@@ -22,8 +22,15 @@ object Passwords {
     private const val KEY_LEN = 64
 
     /** Same trimming as the desktop's sanitizePastedPassword (RTL marks, zero-width, spaces). */
-    fun sanitize(raw: String): String =
-        raw.replace(Regex("^[\\s​-‏‪-‮⁦-⁩]+|[\\s​-‏‪-‮⁦-⁩]+$"), "")
+    fun sanitize(raw: String): String {
+        // Spelled as escapes: the characters are invisible in source, and lint
+        // (rightly) flags invisible bidi marks as a spoofing risk. What they do
+        // here is get *stripped* from pasted passwords — LRM/RLM, the embedding
+        // controls U+202A..U+202E, and the isolates U+2066..U+2069 — mirroring
+        // the desktop's sanitizePastedPassword.
+        val MARKS = "[\\s\\u200E-\\u200F\\u202A-\\u202E\\u2066-\\u2069]"
+        return raw.replace(Regex("^$MARKS+|$MARKS+$"), "")
+    }
 
     fun hash(password: String): String {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }

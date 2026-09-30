@@ -142,7 +142,7 @@ fun Empty(text: String) = Box(Modifier.fillMaxWidth().padding(32.dp), contentAli
 /** Dropdown for an optional id/value. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T> Picker(label: String, options: List<Pair<T, String>>, selected: T?, onSelect: (T?) -> Unit, allowNone: Boolean = true, modifier: Modifier = Modifier) {
+fun <T> Picker(label: String, options: List<Pair<T, String>>, selected: T?, onSelect: (T?) -> Unit, modifier: Modifier = Modifier, allowNone: Boolean = true) {
     var open by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = modifier) {
         OutlinedTextField(

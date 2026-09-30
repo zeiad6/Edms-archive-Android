@@ -71,6 +71,8 @@ import com.zidex.edms.data.STATUS_LABELS
 import com.zidex.edms.data.Storage
 import java.io.ByteArrayOutputStream
 import java.io.File
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 
 @Composable
 fun DocumentScreen(id: Int) {
@@ -107,13 +109,13 @@ fun DocumentScreen(id: Int) {
         }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip({ openFile(ctx, d.storageKey, d.mimeType, share = false) }, { Text("فتح") }, leadingIcon = { Icon(Icons.Default.OpenInNew, null) })
+                AssistChip({ openFile(ctx, d.storageKey, d.mimeType, share = false) }, { Text("فتح") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) })
                 AssistChip({ openFile(ctx, d.storageKey, d.mimeType, share = true) }, { Text("مشاركة") }, leadingIcon = { Icon(Icons.Default.Share, null) })
                 if (Perm.canEdit(u, d)) {
                     AssistChip({ Nav.go(Screen.DocEdit(id = d.id)) }, { Text("تعديل") }, leadingIcon = { Icon(Icons.Default.Edit, null) })
                     AssistChip({ newVersion.launch(arrayOf("*/*")) }, { Text("إصدار جديد") }, leadingIcon = { Icon(Icons.Default.UploadFile, null) })
                 }
-                AssistChip({ askApproval = true }, { Text("طلب موافقة") }, leadingIcon = { Icon(Icons.Default.Send, null) })
+                AssistChip({ askApproval = true }, { Text("طلب موافقة") }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.Send, null) })
                 AssistChip({ sign = true }, { Text("توقيع") }, leadingIcon = { Icon(Icons.Default.Draw, null) })
                 if (Perm.can(u, "documents.delete") || d.uploadedById == u.id) {
                     AssistChip({ askDelete = true }, { Text("حذف") }, leadingIcon = { Icon(Icons.Default.Delete, null) })

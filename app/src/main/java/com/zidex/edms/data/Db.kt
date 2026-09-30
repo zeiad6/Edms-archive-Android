@@ -85,6 +85,8 @@ class Db private constructor(private val ctx: Context) : SQLiteOpenHelper(ctx, N
     companion object {
         const val NAME = "edms.db"
 
+        // Holds applicationContext (see get()), so there is no Activity to leak.
+        @Suppress("StaticFieldLeak")
         @Volatile private var instance: Db? = null
         fun get(ctx: Context): Db = instance ?: synchronized(this) { instance ?: Db(ctx.applicationContext).also { instance = it } }
 

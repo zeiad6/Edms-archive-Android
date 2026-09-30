@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+  Inflated by RemoteActivity with the framework MenuInflater (it is a
+  ComponentActivity, not an AppCompatActivity), so `android:showAsAction` is the
+  namespace that actually applies here. The app has no appcompat dependency,
+  which is why lint's AppCompatResource check is suppressed for this file.
+-->
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="AppCompatResource">
     <item android:id="@+id/menu_scan" android:title="@string/menu_scan" android:showAsAction="ifRoom" android:icon="@android:drawable/ic_menu_camera" />
     <item android:id="@+id/menu_reload" android:title="@string/menu_reload" android:showAsAction="never" />
     <item android:id="@+id/menu_update" android:title="@string/check_update" android:showAsAction="never" />

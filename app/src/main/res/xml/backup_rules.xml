@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pre-Android-12 counterpart of data_extraction_rules.xml: same exclusions. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="credentials.xml" />
+    <exclude domain="sharedpref" path="link.xml" />
+</full-backup-content>

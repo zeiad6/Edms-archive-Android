@@ -2,6 +2,7 @@ package com.zidex.edms.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.foundation.layout.RowScope
 import android.content.Context
 import androidx.compose.foundation.clickable
@@ -216,7 +217,7 @@ fun typeIcon(name: String): ImageVector = when (name) {
     "محضر اجتماع" -> Icons.Default.Groups
     "تقرير" -> Icons.Default.Assessment
     "مراسلة رسمية" -> Icons.Default.Mail
-    "نموذج" -> Icons.Default.Assignment
+    "نموذج" -> Icons.AutoMirrored.Filled.Assignment
     "صورة ضوئية" -> Icons.Default.DocumentScanner
     else -> Icons.Default.Description
 }

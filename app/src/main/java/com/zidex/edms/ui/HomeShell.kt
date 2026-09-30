@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ViewQuilt
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.BarChart
@@ -174,7 +175,7 @@ fun HomeShell() {
         add(Item(Screen.Departments, Icons.Default.Apartment))
         if (Perm.can(user, "tags.manage")) add(Item(Screen.Tags, Icons.AutoMirrored.Filled.Label))
         if (Perm.can(user, "doc-types.manage")) add(Item(Screen.DocTypes, Icons.Default.Category))
-        add(Item(Screen.Templates, Icons.Default.ViewQuilt))
+        add(Item(Screen.Templates, Icons.AutoMirrored.Filled.ViewQuilt))
         if (Perm.can(user, "users.view")) add(Item(Screen.Users, Icons.Default.People))
     }
     val systemItems = buildList {

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -201,10 +201,10 @@ fun EdmsTheme(content: @Composable () -> Unit) {
  * every input in the app including dialogs.
  */
 @OptIn(ExperimentalLayoutApi::class)
-fun Modifier.aboveKeyboard(scrollable: Boolean = true): Modifier = composed {
+fun Modifier.aboveKeyboard(scrollable: Boolean = true): Modifier {
     val base = Modifier.imePadding()
     val nested = if (scrollable) Modifier.imeScrollSafe() else Modifier
-    this.then(base).then(nested)
+    return this.then(base).then(nested)
 }
 
 /**

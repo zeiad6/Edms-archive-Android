@@ -177,8 +177,13 @@ class RemoteActivity : ComponentActivity() {
         }
         w.addJavascriptInterface(WebBridge(), "EdmsAndroid")
         w.webViewClient = object : WebViewClient() {
+            @Suppress("WebViewClientOnReceivedSslError")
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 // Self-signed by design: accept ONLY the paired desktop's pinned certificate.
+                // The general lint warning is about blanket handler.proceed(); this
+                // branch is pinned twice over — the origin must be the paired one
+                // *and* the certificate must hash to the fingerprint carried in the
+                // pairing QR. Anything else is cancelled.
                 if (isOurOrigin(Uri.parse(error.url)) && Pins.matches(error.certificate, l.fingerprint)) handler.proceed()
                 else handler.cancel()
             }

@@ -34,6 +34,8 @@ class Repo private constructor(private val ctx: Context) {
     private val db: SQLiteDatabase get() = Db.get(ctx).writableDatabase
 
     companion object {
+        // Holds applicationContext (see get()), so there is no Activity to leak.
+        @Suppress("StaticFieldLeak")
         @Volatile private var instance: Repo? = null
         fun get(ctx: Context): Repo = instance ?: synchronized(this) { instance ?: Repo(ctx.applicationContext).also { instance = it } }
     }

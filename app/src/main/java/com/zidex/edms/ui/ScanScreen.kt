@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 
 private class Page(val uri: Uri, val preview: Bitmap, val blank: Boolean, rotation: Int = 0) {
     var rotation by mutableStateOf(rotation)
@@ -162,7 +163,7 @@ fun ScanScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("صفحة ${i + 1}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         if (p.blank) Pill("فارغة", Color(0xFFD97706))
-                        IconButton({ p.rotation = (p.rotation + 90) % 360 }) { Icon(Icons.Default.RotateRight, "تدوير") }
+                        IconButton({ p.rotation = (p.rotation + 90) % 360 }) { Icon(Icons.AutoMirrored.Filled.RotateRight, "تدوير") }
                         IconButton({ if (i > 0) pages.add(i - 1, pages.removeAt(i)) }, enabled = i > 0) { Icon(Icons.Default.ArrowUpward, "أعلى") }
                         IconButton({ if (i < pages.lastIndex) pages.add(i + 1, pages.removeAt(i)) }, enabled = i < pages.lastIndex) { Icon(Icons.Default.ArrowDownward, "أسفل") }
                         IconButton({ pages.removeAt(i) }) { Icon(Icons.Default.Delete, "حذف") }
