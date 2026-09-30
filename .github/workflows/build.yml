@@ -62,26 +62,39 @@ jobs:
           EDMS_KEY_ALIAS: ${{ secrets.EDMS_KEY_ALIAS }}
           EDMS_KEY_PASSWORD: ${{ secrets.EDMS_KEY_PASSWORD }}
 
-      - name: Summarise APKs
+      - name: Check the release APK is actually obfuscated
+        # A release DEX that still carries `Lcom/zidex/edms/…;` type
+        # descriptors is not obfuscated, whatever the mapping file claims. This
+        # is the check that keeps the promise honest.
         run: |
           set -euo pipefail
-          echo "### Output" >> "$GITHUB_STEP_SUMMARY"
-          for f in app/build/outputs/apk/*/*.apk; do
-            [ -e "$f" ] || continue
-            printf '| `%s` | %s |\n' "$(basename "$f")" \
-              "$(du -h "$f" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
-          done
-          echo >> "$GITHUB_STEP_SUMMARY"
-          echo "### Obfuscation check" >> "$GITHUB_STEP_SUMMARY"
-          # A release DEX that still mentions the original package is not
-          # obfuscated — this is the check that keeps the promise honest.
           apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          unzip -p "$apk" 'classes*.dex' > /tmp/release.dex || true
-          if grep -qa 'com/zidex/edms' /tmp/release.dex; then
-            echo "FAIL: original package names are still present in the release DEX" >> "$GITHUB_STEP_SUMMARY"
+          unzip -o -q "$apk" 'classes*.dex' -d /tmp/dex
+          cat /tmp/dex/*.dex > /tmp/release.dex
+
+          echo "### Obfuscation check" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK: $(basename "$apk") · $(du -h "$apk" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "Leaked type descriptors (fatal):"
+            strings -a /tmp/release.dex | grep -a -o 'Lcom/zidex/edms[A-Za-z0-9_$/]*' | sort -u | head -40 || echo "  (none)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if strings -a /tmp/release.dex | grep -aq 'Lcom/zidex/edms'; then
+            {
+              echo
+              echo '::error::original com.zidex.edms type descriptors are present in the release DEX'
+              echo 'These are the strings printed above.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            strings -a /tmp/release.dex | grep -a -o 'Lcom/zidex/edms[A-Za-z0-9_$/]*' | sort -u | head -40
             exit 1
           fi
-          echo "PASS: no com.zidex.edms class names in the release DEX" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo
+            echo "PASS: no com.zidex.edms class descriptors in the release DEX"
+            echo "Reference strings still present (expected — the package name is public):"
+            strings -a /tmp/release.dex | grep -a -o 'com\.zidex\.edms[A-Za-z0-9_.]*' | sort -u | head -10 || echo "  (none)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4

@@ -67,13 +67,15 @@ The desktop build ships JavaScript, so its logic is readable by anyone. The Andr
 
 The only names that survive are the ones the platform needs: manifest components (the manifest is rewritten to match), views inflated from XML, `@JavascriptInterface` bridge methods, and ML Kit's scanner entry points. `app/proguard-rules.pro` documents each one.
 
+`InnerClasses` and `EnclosingMethod` are deliberately **not** kept: both record the declaring class as a type descriptor, so keeping them puts every original `Lcom/zidex/edms/…;` string back into the DEX even after the class was renamed.
+
 `app/build/outputs/mapping/release/mapping.txt` turns a release stack trace back into source names. It is uploaded as a 90-day CI artifact and never published as a release asset.
 
 ## CI
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `.github/workflows/build.yml` | every push, PR, manual | unit tests → debug APK → release APK, then **fails the build if the original `com/zidex/edms` package names are still in the release DEX**. Uploads the APKs and the R8 mapping. |
+| `.github/workflows/build.yml` | every push, PR, manual | unit tests → debug APK → release APK, then greps the release DEX for `Lcom/zidex/edms` type descriptors and **fails the build if any survive**, printing the leaked ones. Uploads the APKs and the R8 mapping. |
 | `.github/workflows/release.yml` | tag `v*` | assembles the signed release APK, verifies the signature and the obfuscation, deletes the key material from the runner, attaches the APK to the GitHub release. Requires the `EDMS_*` repository secrets. |
 
 The in-app updater reads the newest release from `zeiad6/Edms-archive`, so a version tag has to be published there as well for phones to see it.

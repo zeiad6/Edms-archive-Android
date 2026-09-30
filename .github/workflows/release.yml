@@ -64,12 +64,14 @@ jobs:
           set -euo pipefail
           apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$apk" | head -20
-          unzip -p "$apk" 'classes*.dex' > /tmp/release.dex
-          if grep -qa 'com/zidex/edms' /tmp/release.dex; then
-            echo "::error::original package names are still present in the release DEX"
+          unzip -o -q "$apk" 'classes*.dex' -d /tmp/dex
+          cat /tmp/dex/*.dex > /tmp/release.dex
+          if strings -a /tmp/release.dex | grep -aq 'Lcom/zidex/edms'; then
+            echo "::error::original com.zidex.edms type descriptors are still present in the release DEX"
+            strings -a /tmp/release.dex | grep -a -o 'Lcom/zidex/edms[A-Za-z0-9_$/]*' | sort -u | head -40
             exit 1
           fi
-          echo "::notice::release DEX carries no original class names"
+          echo "::notice::release DEX carries no original class descriptors"
 
       - name: Publish the release
         env:

@@ -25,8 +25,13 @@
 
 # No source file names, no line numbers, no source-level signatures in the DEX:
 # those are the first thing a decompiler uses to rebuild readable code.
+#
+# InnerClasses and EnclosingMethod are deliberately NOT kept: both store the
+# *declaring* class as a type descriptor, so keeping them leaks every original
+# `Lcom/zidex/edms/…;` string back into the DEX even when the class itself was
+# renamed. Nothing in this app reflects on inner classes, so they can go.
 -renamesourcefileattribute SourceFile
--keepattributes *Annotation*,InnerClasses,EnclosingMethod,Signature,Exceptions
+-keepattributes *Annotation*,Signature,Exceptions
 
 # Library keep rules routinely reference classes that are only present on other
 # platforms. A missing class here is a warning, not a build failure.
