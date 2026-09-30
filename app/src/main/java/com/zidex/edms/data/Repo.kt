@@ -46,7 +46,7 @@ class Repo private constructor(private val ctx: Context) {
     fun login(username: String, password: String): User {
         val key = username.trim().lowercase()
         failures[key]?.let { (n, until) -> if (n >= 5 && System.currentTimeMillis() < until) throw UserError("محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة") }
-        val u = db.one("SELECT * FROM users WHERE lower(username) = ? OR lower(email) = ?", key, key, map = User::of)
+        val u = db.one("SELECT * FROM users WHERE lower(username) = ? OR lower(email) = ?", key, key, map = { c -> User.of(c) })
         if (u == null || !Passwords.verify(Passwords.sanitize(password), u.passwordHash)) {
             val n = (failures[key]?.first ?: 0) + 1
             failures[key] = n to System.currentTimeMillis() + 60_000
@@ -58,7 +58,7 @@ class Repo private constructor(private val ctx: Context) {
         return u
     }
 
-    fun user(id: Int) = db.one("SELECT * FROM users WHERE id = ?", id, map = User::of)
+    fun user(id: Int) = db.one("SELECT * FROM users WHERE id = ?", id, map = { c -> User.of(c) })
 
     fun changePassword(u: User, current: String?, new: String): User {
         val pw = Passwords.sanitize(new)
@@ -73,13 +73,13 @@ class Repo private constructor(private val ctx: Context) {
 
     // ───────────── lookups ─────────────
 
-    fun departments() = db.list("SELECT * FROM departments ORDER BY id", map = Department::of)
-    fun folders() = db.list("SELECT * FROM folders ORDER BY name", map = Folder::of)
-    fun tags() = db.list("SELECT * FROM tags ORDER BY name", map = Tag::of)
-    fun docTypes() = db.list("SELECT * FROM doc_types ORDER BY sort_order, name", map = DocType::of)
-    fun users() = db.list("SELECT * FROM users ORDER BY name", map = User::of)
-    fun approvers() = db.list("SELECT * FROM users WHERE role != 'staff' AND active = 1 ORDER BY name", map = User::of)
-    fun templates() = db.list("SELECT * FROM document_templates ORDER BY sort_order, name", map = Template::of)
+    fun departments() = db.list("SELECT * FROM departments ORDER BY id", map = { c -> Department.of(c) })
+    fun folders() = db.list("SELECT * FROM folders ORDER BY name", map = { c -> Folder.of(c) })
+    fun tags() = db.list("SELECT * FROM tags ORDER BY name", map = { c -> Tag.of(c) })
+    fun docTypes() = db.list("SELECT * FROM doc_types ORDER BY sort_order, name", map = { c -> DocType.of(c) })
+    fun users() = db.list("SELECT * FROM users ORDER BY name", map = { c -> User.of(c) })
+    fun approvers() = db.list("SELECT * FROM users WHERE role != 'staff' AND active = 1 ORDER BY name", map = { c -> User.of(c) })
+    fun templates() = db.list("SELECT * FROM document_templates ORDER BY sort_order, name", map = { c -> Template.of(c) })
 
     // ───────────── documents ─────────────
 
@@ -95,7 +95,7 @@ class Repo private constructor(private val ctx: Context) {
         f.folderId?.let { where += "d.folder_id = ?"; args += it }
         f.docType?.let { where += "d.doc_type = ?"; args += it }
         f.tagId?.let { where += "EXISTS (SELECT 1 FROM document_tags t WHERE t.document_id = d.id AND t.tag_id = ?)"; args += it }
-        val rows = db.list("SELECT d.* FROM documents d WHERE ${where.joinToString(" AND ")} ORDER BY d.updated_at DESC", *args.toTypedArray(), map = Document::of)
+        val rows = db.list("SELECT d.* FROM documents d WHERE ${where.joinToString(" AND ")} ORDER BY d.updated_at DESC", *args.toTypedArray(), map = { c -> Document.of(c) })
         val terms = Arabic.terms(f.query)
         if (terms.isEmpty()) return rows
         return rows.filter { d ->
@@ -105,12 +105,12 @@ class Repo private constructor(private val ctx: Context) {
     }
 
     fun document(u: User, id: Int): Document {
-        val d = db.one("SELECT * FROM documents WHERE id = ?", id, map = Document::of) ?: throw UserError("المستند غير موجود")
+        val d = db.one("SELECT * FROM documents WHERE id = ?", id, map = { c -> Document.of(c) }) ?: throw UserError("المستند غير موجود")
         if (!Perm.canAccess(u, d)) throw UserError("هذا المستند مقيد أو سري ولا يحق لمستخدمك الحالي عرضه.")
         return d
     }
 
-    fun documentTags(id: Int) = db.list("SELECT t.* FROM tags t JOIN document_tags dt ON dt.tag_id = t.id WHERE dt.document_id = ? ORDER BY t.name", id, map = Tag::of)
+    fun documentTags(id: Int) = db.list("SELECT t.* FROM tags t JOIN document_tags dt ON dt.tag_id = t.id WHERE dt.document_id = ? ORDER BY t.name", id, map = { c -> Tag.of(c) })
 
     private fun docValues(m: DocMeta) = cv(
         "title" to m.title.trim(), "description" to m.description?.trim()?.ifBlank { null }, "doc_number" to m.docNumber?.trim()?.ifBlank { null },
@@ -194,7 +194,7 @@ class Repo private constructor(private val ctx: Context) {
 
     fun purge(u: User, id: Int) {
         if (!Perm.can(u, "documents.force_delete")) throw UserError("الحذف النهائي للمدير فقط")
-        val d = db.one("SELECT * FROM documents WHERE id = ?", id, map = Document::of) ?: return
+        val d = db.one("SELECT * FROM documents WHERE id = ?", id, map = { c -> Document.of(c) }) ?: return
         val keys = versions(id).map { it.storageKey } + d.storageKey + listOfNotNull(d.thumbKey)
         db.delete("documents", "id = ?", arrayOf("$id"))
         keys.distinct().forEach { Storage.delete(ctx, it) }
@@ -218,11 +218,11 @@ class Repo private constructor(private val ctx: Context) {
         c.sn("asg_name") ?: "", c.s("status"), c.sn("comment"), c.sn("response_note"), c.sn("responded_at"), c.s("created_at"),
     )
 
-    fun approvals(u: User, mine: Boolean): List<Approval> = if (mine) db.list("$approvalSql WHERE a.requested_by_id = ? ORDER BY a.created_at DESC", u.id, map = ::approvalOf)
-    else if (u.role == "admin") db.list("$approvalSql ORDER BY a.status = 'pending' DESC, a.created_at DESC", map = ::approvalOf)
-    else db.list("$approvalSql WHERE a.assigned_to_id = ? ORDER BY a.status = 'pending' DESC, a.created_at DESC", u.id, map = ::approvalOf)
+    fun approvals(u: User, mine: Boolean): List<Approval> = if (mine) db.list("$approvalSql WHERE a.requested_by_id = ? ORDER BY a.created_at DESC", u.id, map = { c -> approvalOf(c) })
+    else if (u.role == "admin") db.list("$approvalSql ORDER BY a.status = 'pending' DESC, a.created_at DESC", map = { c -> approvalOf(c) })
+    else db.list("$approvalSql WHERE a.assigned_to_id = ? ORDER BY a.status = 'pending' DESC, a.created_at DESC", u.id, map = { c -> approvalOf(c) })
 
-    fun documentApprovals(id: Int) = db.list("$approvalSql WHERE a.document_id = ? ORDER BY a.created_at DESC", id, map = ::approvalOf)
+    fun documentApprovals(id: Int) = db.list("$approvalSql WHERE a.document_id = ? ORDER BY a.created_at DESC", id, map = { c -> approvalOf(c) })
 
     fun submitApproval(u: User, docId: Int, assigneeId: Int, comment: String) {
         val d = document(u, docId)
@@ -243,7 +243,7 @@ class Repo private constructor(private val ctx: Context) {
 
     fun respond(u: User, requestId: Int, approve: Boolean, note: String) {
         if (!Perm.can(u, "approvals.manage")) throw UserError("ليس لديك صلاحية لهذه العملية")
-        val a = db.one("$approvalSql WHERE a.id = ?", requestId, map = ::approvalOf) ?: throw UserError("الطلب غير موجود")
+        val a = db.one("$approvalSql WHERE a.id = ?", requestId, map = { c -> approvalOf(c) }) ?: throw UserError("الطلب غير موجود")
         if (u.role != "admin" && a.assignedToId != u.id) throw UserError("هذا الطلب ليس مسنداً إليك")
         db.inTx {
             // compare-and-swap on status, like the desktop, so a request is answered once
