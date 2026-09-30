@@ -67,7 +67,12 @@ The desktop build ships JavaScript, so its logic is readable by anyone. The Andr
 
 The only names that survive are the ones the platform needs: manifest components (the manifest is rewritten to match), views inflated from XML, `@JavascriptInterface` bridge methods, and ML Kit's scanner entry points. `app/proguard-rules.pro` documents each one.
 
-`InnerClasses` and `EnclosingMethod` are deliberately **not** kept: both record the declaring class as a type descriptor, so keeping them puts every original `Lcom/zidex/edms/…;` string back into the DEX even after the class was renamed.
+Two attribute groups are deliberately **not** kept, because both write original names back into the DEX even after the class was renamed:
+
+- `Signature` — every Kotlin callable reference (`::Document.of`, used throughout `Repo.kt`) compiles to a synthetic class whose generic signature is the method's own descriptor, e.g. `of(Landroid/database/Cursor;)Lcom/zidex/edms/data/Document;`. Keeping `Signature` leaked the name of every model class.
+- `InnerClasses` / `EnclosingMethod` — both record the declaring class as a type descriptor.
+
+What is left is `Lcom/zidex/edms/MainActivity;` and `Lcom/zidex/edms/remote/RemoteActivity;`, because AGP emits a strict `-keep class …` for every manifest component and that cannot be loosened from the app's rules file. The package name itself is public by construction (manifest, Play Store, `packageName` at runtime) — what CI enforces is that no *business-logic* class name survives.
 
 `app/build/outputs/mapping/release/mapping.txt` turns a release stack trace back into source names. It is uploaded as a 90-day CI artifact and never published as a release asset.
 
@@ -75,7 +80,7 @@ The only names that survive are the ones the platform needs: manifest components
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `.github/workflows/build.yml` | every push, PR, manual | unit tests → debug APK → release APK, then greps the release DEX for `Lcom/zidex/edms` type descriptors and **fails the build if any survive**, printing the leaked ones. Uploads the APKs and the R8 mapping. |
+| `.github/workflows/build.yml` | every push, PR, manual | unit tests → debug APK → release APK, then greps the release DEX for original `Lcom/zidex/edms` class descriptors and **fails the build** on any beyond the two manifest activities, printing the leaked ones. Uploads the APKs, the R8 mapping and the merged R8 configuration. |
 | `.github/workflows/release.yml` | tag `v*` | assembles the signed release APK, verifies the signature and the obfuscation, deletes the key material from the runner, attaches the APK to the GitHub release. Requires the `EDMS_*` repository secrets. |
 
 The in-app updater reads the newest release from `zeiad6/Edms-archive`, so a version tag has to be published there as well for phones to see it.

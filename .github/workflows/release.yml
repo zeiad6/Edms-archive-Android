@@ -66,12 +66,18 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$apk" | head -20
           unzip -o -q "$apk" 'classes*.dex' -d /tmp/dex
           cat /tmp/dex/*.dex > /tmp/release.dex
-          if strings -a /tmp/release.dex | grep -aq 'Lcom/zidex/edms'; then
-            echo "::error::original com.zidex.edms type descriptors are still present in the release DEX"
-            strings -a /tmp/release.dex | grep -a -o 'Lcom/zidex/edms[A-Za-z0-9_$/]*' | sort -u | head -40
+          # Only the two activities AGP keeps by name may survive; see build.yml.
+          allowed='^(Lcom/zidex/edms/MainActivity;|Lcom/zidex/edms/remote/RemoteActivity(|\$[A-Za-z0-9_$]*);)$'
+          leaked=$(strings -a /tmp/release.dex \
+            | grep -a -o 'Lcom/zidex/edms[A-Za-z0-9_$/;]*' \
+            | sort -u \
+            | grep -a -v -E "$allowed" || true)
+          if [ -n "$leaked" ]; then
+            echo "::error::original class descriptors are still present in the release DEX"
+            echo "$leaked" | head -40
             exit 1
           fi
-          echo "::notice::release DEX carries no original class descriptors"
+          echo "::notice::release DEX carries no original class descriptors beyond the manifest components"
 
       - name: Publish the release
         env:

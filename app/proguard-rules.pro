@@ -26,12 +26,20 @@
 # No source file names, no line numbers, no source-level signatures in the DEX:
 # those are the first thing a decompiler uses to rebuild readable code.
 #
-# InnerClasses and EnclosingMethod are deliberately NOT kept: both store the
+# Signature is deliberately NOT kept, and dropping it was worth 8 class names.
+# Every Kotlin callable reference (`::Document.of`, used all over Repo.kt to map
+# a Cursor onto a model) compiles to a synthetic class whose generic signature
+# is the method's own descriptor, e.g.
+#     of(Landroid/database/Cursor;)Lcom/zidex/edms/data/Document;
+# Keeping Signature therefore wrote the original name of every model class into
+# the DEX even after R8 had renamed the class itself to a.li. Nothing in this app
+# reflects on generic types, so it goes.
+#
+# InnerClasses and EnclosingMethod go for the same reason: both store the
 # *declaring* class as a type descriptor, so keeping them leaks every original
-# `Lcom/zidex/edms/…;` string back into the DEX even when the class itself was
-# renamed. Nothing in this app reflects on inner classes, so they can go.
+# `Lcom/zidex/edms/…;` string back in.
 -renamesourcefileattribute SourceFile
--keepattributes *Annotation*,Signature,Exceptions
+-keepattributes *Annotation*,Exceptions
 
 # Library keep rules routinely reference classes that are only present on other
 # platforms. A missing class here is a warning, not a build failure.
