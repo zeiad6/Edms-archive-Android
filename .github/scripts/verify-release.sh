@@ -55,10 +55,17 @@ fi
 # the installed copy, so a release signed by a different key is worthless even
 # though it verifies. If the key is ever rotated on purpose, update this digest
 # in the same commit as the new secret.
+#
+# The line prefix moved in build-tools 37 (`V2 Signer: certificate SHA-256
+# digest:` instead of `Signer #1 certificate SHA-256 digest:`), and ubuntu-latest
+# installs 37, so match on the suffix rather than on the prefix. `tr -cd` keeps
+# the digest parseable whether the tool prints colons, spaces or upper case.
 EXPECTED_SHA256="${EXPECTED_SHA256:-a341357bb1ed3fa47733079f33f9cc0cefac0e4b1624d32ea4f4fdbca2757060}"
-ACTUAL_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print tolower($2)}' /tmp/certs.txt | tr -d ' ' | head -1)"
+ACTUAL_SHA256="$(awk 'tolower($0) ~ /certificate sha-256 digest/ {print tolower($NF)}' /tmp/certs.txt \
+  | tr -cd '0-9a-f' | head -c 64)"
 if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
   echo "::error::release APK is signed with the wrong certificate (got ${ACTUAL_SHA256:-none}, want $EXPECTED_SHA256); it cannot update an existing install"
+  sed -n '1,12p' /tmp/certs.txt || true
   exit 1
 fi
 
