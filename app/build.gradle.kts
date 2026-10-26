@@ -41,8 +41,8 @@ android {
         // Bump both for every published Android release. Android refuses to
         // install an APK with a versionCode it already has, and the in-app
         // updater compares versionName against the newest release tag.
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 4
+        versionName = "1.0.4"
         buildConfigField("String", "UPDATE_REPO", "\"zeiad6/Edms-archive-Android\"")
     }
 

@@ -10,7 +10,7 @@ Two ways to run it, chosen on the login screen:
 | | |
 |---|---|
 | Package | `com.zidex.edms` |
-| Version | `1.0.3` |
+| Version | `1.0.4` |
 | Min SDK | 26 (Android 8.0) — the camera scanner needs Google Play services; gallery import and barcode reading work offline |
 | Language / UI | Kotlin · Jetpack Compose (Material 3) · Arabic + English |
 
@@ -56,6 +56,12 @@ The release key is **not** in this repository. `app/build.gradle.kts` reads it f
 | `EDMS_KEY_PASSWORD` | `keyPassword` |
 
 Every update must be signed with the **same** key, or Android refuses to install it over an existing copy. Without a key, `assembleRelease` still produces an unsigned, fully protected APK.
+
+### Update lineages
+
+`com.zidex.edms` has been signed by two keys: `CN=EDMS Archive` (every GitHub release) and `CN=Zeidex Keyboard` (an early local 1.0.2 build). A release therefore ships one APK per lineage, tagged `-edms` or `-zeidex` in the asset name. `Updater.kt` reads the installed certificate's SHA-256, picks the matching asset, and re-checks the downloaded APK's package, signer and versionCode before opening the installer. It refuses a mismatch instead of letting the install fail.
+
+**Never uninstall to force an update.** The database, preferences and every stored document live in internal storage and are deleted with the app. Both APKs install in place and keep that data. If the installer rejects one file, try the other lineage — do not wipe the app.
 
 ### Code protection
 

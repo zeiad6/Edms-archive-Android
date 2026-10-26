@@ -41,6 +41,11 @@
     <string name="update_no_apk">الإصدار %1$s لا يحتوي ملف APK بعد</string>
     <string name="update_downloading">جارٍ تنزيل التحديث…</string>
     <string name="update_allow_install">اسمح للتطبيق بتثبيت التحديثات ثم أعد المحاولة</string>
+    <string name="update_no_match">لا يوجد ملف تحديث في الإصدار %1$s موقّع بمفتاح النسخة المثبتة. لا تُلغِ تثبيت التطبيق — بياناتك سليمة، ونزّل الملف المطابق من صفحة الإصدار.</string>
+    <string name="update_wrong_app">الملف الذي نُزّل يخصّ تطبيقاً آخر. حُذف، ولم تُمسّ بياناتك.</string>
+    <string name="update_wrong_signer">الملف الذي نُزّل موقّع بمفتاح مختلف، ولن يُثبَّت فوق النسخة الحالية. حُذف، ولم تُمسّ بياناتك.</string>
+    <string name="update_wrong_version">الملف الذي نُزّل ليس أحدث من النسخة المثبتة. حُذف، ولم تُمسّ بياناتك.</string>
+    <string name="update_safe_data">التحديث يُثبَّت فوق النسخة الحالية ويحافظ على قاعدة البيانات والملفات. لا تُلغِ تثبيت التطبيق.</string>
 
     <string name="developed_by">تم تطوير البرنامج بواسطة</string>
     <string name="dev_name" translatable="false">Zidex</string>
