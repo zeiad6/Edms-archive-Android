@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -103,12 +105,36 @@ fun ScanScreen() {
         scope.launch {
             try {
                 val added = withContext(Dispatchers.IO) {
-                    uris.map { uri ->
-                        val preview = decode(ctx, uri, 700)!!
-                        Page(uri, preview, Enhance.isBlank(preview))
+                    uris.mapNotNull { uri ->
+                        decode(ctx, uri, 700)?.let { preview ->
+                            Page(uri, preview, Enhance.isBlank(preview))
+                        }
                     }
                 }
                 pages.addAll(added)
+                if (barcode == null) barcode = withContext(Dispatchers.IO) { added.firstNotNullOfOrNull { detectBarcode(ctx, it.uri) } }
+            } catch (e: Exception) {
+                Session.say(errorText(e))
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        busy = "جارٍ تحليل الصفحات…"
+        scope.launch {
+            try {
+                val added = withContext(Dispatchers.IO) {
+                    uris.mapNotNull { uri ->
+                        decode(ctx, uri, 700)?.let { preview ->
+                            Page(uri, preview, Enhance.isBlank(preview))
+                        }
+                    }
+                }
+                pages.addAll(added)
+                if (added.isEmpty()) Session.say("تعذرت قراءة الصور المختارة")
                 if (barcode == null) barcode = withContext(Dispatchers.IO) { added.firstNotNullOfOrNull { detectBarcode(ctx, it.uri) } }
             } catch (e: Exception) {
                 Session.say(errorText(e))
@@ -137,7 +163,14 @@ fun ScanScreen() {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 busy?.let { Text(it); LinearProgressIndicator(Modifier.padding(top = 8.dp)) }
-                    ?: Button({ startScanner() }) { Icon(Icons.Default.DocumentScanner, null); Text("  بدء المسح بالكاميرا") }
+                    ?: Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button({ startScanner() }) { Icon(Icons.Default.DocumentScanner, null); Text("  بدء المسح بالكاميرا") }
+                        Spacer(Modifier.height(14.dp))
+                        OutlinedButton({ galleryLauncher.launch("image/*") }) {
+                            Icon(Icons.Default.UploadFile, null)
+                            Text("  استيراد صور من المعرض")
+                        }
+                    }
             }
         }
         return
@@ -175,6 +208,9 @@ fun ScanScreen() {
         }
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton({ startScanner() }, Modifier.weight(1f), enabled = busy == null) { Text("إضافة صفحات") }
+            OutlinedButton({ galleryLauncher.launch("image/*") }, enabled = busy == null) {
+                Icon(Icons.Default.UploadFile, "إضافة صور من المعرض")
+            }
             Button(
                 enabled = busy == null,
                 onClick = {

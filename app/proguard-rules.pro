@@ -87,11 +87,17 @@
 -keepclassmembers class kotlin.coroutines.SafeContinuation { <fields>; }
 -dontwarn kotlinx.coroutines.**
 
-# ML Kit scanner/barcode models ship unbundled (Play services downloads them),
-# so only the entry points we call need to survive.
+# ML Kit & Google Play Services entry points and dynamic modules
 -keep,allowoptimization class com.google.mlkit.vision.documentscanner.** { *; }
 -keep,allowoptimization class com.google.mlkit.vision.codescanner.** { *; }
 -keep,allowoptimization class com.google.mlkit.vision.barcode.** { *; }
+-keep class com.google.mlkit.vision.common.** { *; }
+-keep class com.google.android.gms.common.** { *; }
+-keep class com.google.android.gms.tasks.** { *; }
+-keep class com.google.android.gms.dynamite.** { *; }
+-keep class com.google.android.gms.dynamic.** { *; }
+-dontwarn com.google.android.gms.**
+-dontwarn com.google.mlkit.**
 
 # ── Never shipped ────────────────────────────────────────────────────────────
 # Logging and print calls are removed from the release DEX, along with the

@@ -10,8 +10,8 @@ Two ways to run it, chosen on the login screen:
 | | |
 |---|---|
 | Package | `com.zidex.edms` |
-| Version | `1.0.1` (kept in step with the desktop release tag) |
-| Min SDK | 26 (Android 8.0) — the scanner needs Google Play services |
+| Version | `1.0.3` |
+| Min SDK | 26 (Android 8.0) — the camera scanner needs Google Play services; gallery import and barcode reading work offline |
 | Language / UI | Kotlin · Jetpack Compose (Material 3) · Arabic + English |
 
 Full Arabic documentation: **[README_ar.md](README_ar.md)**.
@@ -83,7 +83,7 @@ What is left is `Lcom/zidex/edms/MainActivity;` and `Lcom/zidex/edms/remote/Remo
 | `.github/workflows/build.yml` | every push, PR, manual | unit tests → debug APK → release APK, then greps the release DEX for original `Lcom/zidex/edms` class descriptors and **fails the build** on any beyond the two manifest activities, printing the leaked ones. Uploads the APKs, the R8 mapping and the merged R8 configuration. |
 | `.github/workflows/release.yml` | tag `v*` | assembles the signed release APK, verifies the signature and the obfuscation, deletes the key material from the runner, attaches the APK to the GitHub release. Requires the `EDMS_*` repository secrets. |
 
-The in-app updater reads the newest release from `zeiad6/Edms-archive`, so a version tag has to be published there as well for phones to see it.
+The in-app updater reads the newest release from `zeiad6/Edms-archive-Android`. A release is published by pushing a `v*` tag; CI signs it with the pinned release key and refuses the build if the certificate does not match the one existing installs trust.
 
 ## Layout
 

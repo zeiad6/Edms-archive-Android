@@ -455,7 +455,7 @@ class Repo private constructor(private val ctx: Context) {
 
         val statusCounts = buildMap<String, Int> {
             db.list("SELECT status, COUNT(*) FROM documents d WHERE $whereClause GROUP BY status", *argArray) { c ->
-                put(c.getString(0), c.getInt(1))
+                c.getString(0)?.let { put(it, c.getInt(1)) }
             }
         }
         val byStatus = STATUS_LABELS.keys.associateWith { statusCounts[it] ?: 0 }
@@ -463,12 +463,12 @@ class Repo private constructor(private val ctx: Context) {
         val byDepartment = db.list(
             "SELECT COALESCE(dp.name, 'بدون قسم'), COUNT(d.id) FROM documents d LEFT JOIN departments dp ON dp.id = d.department_id WHERE $whereClause GROUP BY d.department_id ORDER BY COUNT(d.id) DESC",
             *argArray
-        ) { c -> c.getString(0) to c.getInt(1) }
+        ) { c -> (c.getString(0) ?: "بدون قسم") to c.getInt(1) }
 
         val typeCountsAndSizes = db.list(
             "SELECT COALESCE(d.doc_type, 'غير مصنف'), COUNT(d.id), COALESCE(SUM(d.file_size), 0) FROM documents d WHERE $whereClause GROUP BY d.doc_type ORDER BY COUNT(d.id) DESC",
             *argArray
-        ) { c -> Triple(c.getString(0), c.getInt(1), c.getLong(2)) }
+        ) { c -> Triple(c.getString(0) ?: "غير مصنف", c.getInt(1), c.getLong(2)) }
 
         val byType = typeCountsAndSizes.map { it.first to it.second }
         val typeSizes = typeCountsAndSizes.associate { it.first to it.third }
@@ -476,7 +476,7 @@ class Repo private constructor(private val ctx: Context) {
         val byMonth = db.list(
             "SELECT substr(d.created_at, 1, 7), COUNT(*) FROM documents d WHERE $whereClause GROUP BY substr(d.created_at, 1, 7) ORDER BY substr(d.created_at, 1, 7) ASC",
             *argArray
-        ) { c -> c.getString(0) to c.getInt(1) }.takeLast(6)
+        ) { c -> (c.getString(0) ?: "") to c.getInt(1) }.takeLast(6)
 
         val totalSize = db.one("SELECT COALESCE(SUM(file_size), 0) FROM documents d WHERE $whereClause", *argArray) { it.getLong(0) } ?: 0L
 

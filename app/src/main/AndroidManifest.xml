@@ -5,6 +5,10 @@
     <!-- In-app updates: hand the downloaded APK to the system installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- No CAMERA permission: the ML Kit scanner UI and its camera live inside
+         Google Play services, which owns the permission. Gallery import and the
+         bundled barcode model never touch the camera. -->
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="@xml/backup_rules"

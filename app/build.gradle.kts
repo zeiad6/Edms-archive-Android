@@ -27,6 +27,9 @@ android {
                 storePassword = signing("EDMS_STORE_PASSWORD", "storePassword")
                 keyAlias = signing("EDMS_KEY_ALIAS", "keyAlias")
                 keyPassword = signing("EDMS_KEY_PASSWORD", "keyPassword")
+                // v2 alone is enough here: minSdk is 26 (Android 8), and v2 is
+                // mandatory anyway once native libraries ship uncompressed.
+                enableV2Signing = true
             }
         }
     }
@@ -35,11 +38,12 @@ android {
         applicationId = "com.zidex.edms"
         minSdk = 26
         targetSdk = 35
-        // Keep versionName in step with the desktop release tag (vX.Y.Z):
-        // the in-app updater compares it against the latest GitHub release.
-        versionCode = 2
-        versionName = "1.0.2"
-        buildConfigField("String", "UPDATE_REPO", "\"zeiad6/Edms-archive\"")
+        // Bump both for every published Android release. Android refuses to
+        // install an APK with a versionCode it already has, and the in-app
+        // updater compares versionName against the newest release tag.
+        versionCode = 3
+        versionName = "1.0.3"
+        buildConfigField("String", "UPDATE_REPO", "\"zeiad6/Edms-archive-Android\"")
     }
 
     buildTypes {
@@ -47,6 +51,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Never fall back to the debug key. An APK signed with a different
+            // certificate cannot install over an existing release, but it looks
+            // perfectly valid until the first update — which is exactly the bug
+            // .github/scripts/verify-release.sh turns into a red build.
             signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
@@ -76,8 +84,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
     // Pairing QR scanner (no camera permission needed — UI lives in Play services).
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
-    // Barcode on scanned pages → document number (unbundled, model lives in Play services).
-    implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
+    // Barcode on scanned pages → document number (bundled model: works offline & on non-Play devices).
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     testImplementation("junit:junit:4.13.2")
     // The JVM's android.jar only stubs org.json, so unit tests that exercise the

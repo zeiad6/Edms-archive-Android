@@ -45,8 +45,8 @@ jobs:
       - name: Verify the signature and the obfuscation
         run: |
           set -euo pipefail
+          ./.github/scripts/verify-release.sh
           apk=$(ls app/build/outputs/apk/release/*.apk | head -1)
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$apk" | head -20
           unzip -o -q "$apk" 'classes*.dex' -d /tmp/dex
           cat /tmp/dex/*.dex > /tmp/release.dex
           # Only the two activities AGP keeps by name may survive; see build.yml.

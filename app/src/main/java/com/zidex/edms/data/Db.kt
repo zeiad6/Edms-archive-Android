@@ -14,12 +14,15 @@ import java.io.File
  */
 class Db private constructor(private val ctx: Context) : SQLiteOpenHelper(ctx, NAME, null, 1) {
 
+    init {
+        setWriteAheadLoggingEnabled(true)
+    }
+
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
-        db.enableWriteAheadLogging()
-        db.rawQuery("PRAGMA synchronous = NORMAL", null).close()
-        db.rawQuery("PRAGMA temp_store = MEMORY", null).close()
-        db.rawQuery("PRAGMA cache_size = -8000", null).close()
+        db.execSQL("PRAGMA synchronous = NORMAL")
+        db.execSQL("PRAGMA temp_store = MEMORY")
+        db.execSQL("PRAGMA cache_size = -8000")
     }
 
     // An imported desktop DB has user_version 0, so onCreate runs on it too —

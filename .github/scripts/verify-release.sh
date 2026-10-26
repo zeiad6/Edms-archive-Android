@@ -51,5 +51,16 @@ fi
   echo '```'
 } >> "$GITHUB_STEP_SUMMARY"
 
+# Pin the signer. Android only installs an update when the certificate matches
+# the installed copy, so a release signed by a different key is worthless even
+# though it verifies. If the key is ever rotated on purpose, update this digest
+# in the same commit as the new secret.
+EXPECTED_SHA256="${EXPECTED_SHA256:-a341357bb1ed3fa47733079f33f9cc0cefac0e4b1624d32ea4f4fdbca2757060}"
+ACTUAL_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print tolower($2)}' /tmp/certs.txt | tr -d ' ' | head -1)"
+if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+  echo "::error::release APK is signed with the wrong certificate (got ${ACTUAL_SHA256:-none}, want $EXPECTED_SHA256); it cannot update an existing install"
+  exit 1
+fi
+
 echo "release APK signature verified"
 grep -E "^Signer #1 certificate (DN|SHA-256 digest)" /tmp/certs.txt || true
