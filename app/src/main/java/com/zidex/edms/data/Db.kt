@@ -17,6 +17,9 @@ class Db private constructor(private val ctx: Context) : SQLiteOpenHelper(ctx, N
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
         db.enableWriteAheadLogging()
+        db.rawQuery("PRAGMA synchronous = NORMAL", null).close()
+        db.rawQuery("PRAGMA temp_store = MEMORY", null).close()
+        db.rawQuery("PRAGMA cache_size = -8000", null).close()
     }
 
     // An imported desktop DB has user_version 0, so onCreate runs on it too —
@@ -105,6 +108,8 @@ class Db private constructor(private val ctx: Context) : SQLiteOpenHelper(ctx, N
             "CREATE INDEX IF NOT EXISTS folders_parent_idx ON folders(parent_id)",
             "CREATE INDEX IF NOT EXISTS folders_dept_idx ON folders(department_id)",
             "CREATE INDEX IF NOT EXISTS users_dept_idx ON users(department_id)",
+            "CREATE INDEX IF NOT EXISTS users_lower_username_idx ON users(lower(username))",
+            "CREATE INDEX IF NOT EXISTS users_lower_email_idx ON users(lower(email))",
             "CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, color TEXT NOT NULL DEFAULT '#64748b')",
             "CREATE TABLE IF NOT EXISTS doc_types (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, name_en TEXT, color TEXT NOT NULL DEFAULT '#64748b', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')))",
             "CREATE INDEX IF NOT EXISTS doc_types_sort_idx ON doc_types(sort_order)",
@@ -119,6 +124,7 @@ class Db private constructor(private val ctx: Context) : SQLiteOpenHelper(ctx, N
             "CREATE INDEX IF NOT EXISTS documents_deleted_at_idx ON documents(deleted_at)",
             "CREATE INDEX IF NOT EXISTS documents_doc_date_idx ON documents(doc_date)",
             "CREATE INDEX IF NOT EXISTS documents_doc_type_id_idx ON documents(doc_type_id)",
+            "CREATE INDEX IF NOT EXISTS documents_active_updated_idx ON documents(deleted_at, updated_at DESC)",
             "CREATE TABLE IF NOT EXISTS document_tags (document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE, tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (document_id, tag_id))",
             "CREATE INDEX IF NOT EXISTS doctags_tag_idx ON document_tags(tag_id)",
             "CREATE TABLE IF NOT EXISTS document_versions (id INTEGER PRIMARY KEY AUTOINCREMENT, document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE, version INTEGER NOT NULL, storage_key TEXT NOT NULL, original_name TEXT NOT NULL, file_size INTEGER NOT NULL, note TEXT, uploaded_by_id INTEGER NOT NULL REFERENCES users(id), created_at TEXT NOT NULL DEFAULT (datetime('now')))",
@@ -177,7 +183,8 @@ fun <T> SQLiteDatabase.inTx(block: SQLiteDatabase.() -> T): T {
 fun <T> SQLiteDatabase.list(sql: String, vararg args: Any?, map: (Cursor) -> T): List<T> =
     rawQuery(sql, args.map { it?.toString() }.toTypedArray()).use { c -> buildList { while (c.moveToNext()) add(map(c)) } }
 
-fun <T> SQLiteDatabase.one(sql: String, vararg args: Any?, map: (Cursor) -> T): T? = list(sql, *args, map = map).firstOrNull()
+fun <T> SQLiteDatabase.one(sql: String, vararg args: Any?, map: (Cursor) -> T): T? =
+    rawQuery(sql, args.map { it?.toString() }.toTypedArray()).use { c -> if (c.moveToFirst()) map(c) else null }
 
 fun Cursor.s(col: String): String = getString(getColumnIndexOrThrow(col)) ?: ""
 fun Cursor.sn(col: String): String? = getColumnIndex(col).takeIf { it >= 0 && !isNull(it) }?.let(::getString)

@@ -341,7 +341,8 @@ fun DocTable(docs: List<Document>, depts: List<Department>, modifier: Modifier =
         return if (asc) list.sortedWith(cmp) else list.sortedWith(cmp.reversed())
     }
 
-    val total = docs.sumOf { it.fileSize }
+    val total = remember(docs) { docs.sumOf { it.fileSize } }
+    val deptMap = remember(depts) { depts.associate { it.id to it.name } }
     Column(modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -382,7 +383,7 @@ fun DocTable(docs: List<Document>, depts: List<Department>, modifier: Modifier =
         val rows = remember(docs, sortBy, asc) { sort(docs) }
         LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 120.dp)) {
             items(rows, key = { it.id }) { d ->
-                val name = depts.firstOrNull { it.id == d.departmentId }?.name ?: "—"
+                val name = deptMap[d.departmentId] ?: "—"
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { Nav.go(Screen.DocView(d.id)) }
                         .padding(horizontal = 12.dp, vertical = 10.dp),

@@ -26,10 +26,10 @@ object Backup {
         val db = Db.get(ctx).writableDatabase
         db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
         val parts = JSONArray()
-        ZipOutputStream(out.buffered()).use { zip ->
+        ZipOutputStream(out.buffered(65536)).use { zip ->
             fun add(file: File, name: String) {
                 zip.putNextEntry(ZipEntry(name))
-                file.inputStream().use { it.copyTo(zip) }
+                file.inputStream().buffered(65536).use { it.copyTo(zip, bufferSize = 65536) }
                 zip.closeEntry()
             }
             val dbFiles = Db.files(ctx).filter { it.exists() }
@@ -63,7 +63,7 @@ object Backup {
         val stage = File(ctx.cacheDir, "restore").apply { deleteRecursively(); mkdirs() }
         try {
             var manifestOk = false
-            ZipInputStream(input.buffered()).use { zip ->
+            ZipInputStream(input.buffered(65536)).use { zip ->
                 while (true) {
                     val e = zip.nextEntry ?: break
                     val name = e.name.replace('\\', '/')
@@ -76,7 +76,7 @@ object Backup {
                     val dest = File(stage, name).canonicalFile
                     if (!dest.path.startsWith(stage.canonicalPath + File.separator)) continue // zip-slip guard
                     dest.parentFile?.mkdirs()
-                    dest.outputStream().use { zip.copyTo(it) }
+                    dest.outputStream().buffered(65536).use { zip.copyTo(it, bufferSize = 65536) }
                 }
             }
             if (!manifestOk) throw UserError("الملف ليس نسخة احتياطية من نظام الأرشفة")

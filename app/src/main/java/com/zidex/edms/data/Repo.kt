@@ -442,32 +442,89 @@ class Repo private constructor(private val ctx: Context) {
     }
 
     fun stats(u: User): Stats {
-        val docs = documents(u)
-        val depts = departments().associate { it.id to it.name }
+        val where = mutableListOf("d.deleted_at IS NULL")
+        val args = mutableListOf<Any?>()
+        if (!Perm.can(u, "documents.read_all")) {
+            where += "(d.department_id = ? OR d.uploaded_by_id = ?)"; args += u.departmentId ?: -1; args += u.id
+        }
+        if (u.role == "staff") where += "d.confidential = 0"
+        val whereClause = where.joinToString(" AND ")
+        val argArray = args.toTypedArray()
+
+        val total = db.count("SELECT COUNT(*) FROM documents d WHERE $whereClause", *argArray)
+
+        val statusCounts = buildMap<String, Int> {
+            db.list("SELECT status, COUNT(*) FROM documents d WHERE $whereClause GROUP BY status", *argArray) { c ->
+                put(c.getString(0), c.getInt(1))
+            }
+        }
+        val byStatus = STATUS_LABELS.keys.associateWith { statusCounts[it] ?: 0 }
+
+        val byDepartment = db.list(
+            "SELECT COALESCE(dp.name, 'بدون قسم'), COUNT(d.id) FROM documents d LEFT JOIN departments dp ON dp.id = d.department_id WHERE $whereClause GROUP BY d.department_id ORDER BY COUNT(d.id) DESC",
+            *argArray
+        ) { c -> c.getString(0) to c.getInt(1) }
+
+        val typeCountsAndSizes = db.list(
+            "SELECT COALESCE(d.doc_type, 'غير مصنف'), COUNT(d.id), COALESCE(SUM(d.file_size), 0) FROM documents d WHERE $whereClause GROUP BY d.doc_type ORDER BY COUNT(d.id) DESC",
+            *argArray
+        ) { c -> Triple(c.getString(0), c.getInt(1), c.getLong(2)) }
+
+        val byType = typeCountsAndSizes.map { it.first to it.second }
+        val typeSizes = typeCountsAndSizes.associate { it.first to it.third }
+
+        val byMonth = db.list(
+            "SELECT substr(d.created_at, 1, 7), COUNT(*) FROM documents d WHERE $whereClause GROUP BY substr(d.created_at, 1, 7) ORDER BY substr(d.created_at, 1, 7) ASC",
+            *argArray
+        ) { c -> c.getString(0) to c.getInt(1) }.takeLast(6)
+
+        val totalSize = db.one("SELECT COALESCE(SUM(file_size), 0) FROM documents d WHERE $whereClause", *argArray) { it.getLong(0) } ?: 0L
+
+        val pendingApprovals = if (u.role == "admin") db.count("SELECT COUNT(*) FROM approval_requests WHERE status = 'pending'")
+        else db.count("SELECT COUNT(*) FROM approval_requests WHERE status = 'pending' AND assigned_to_id = ?", u.id)
+
+        val users = db.count("SELECT COUNT(*) FROM users")
+
+        val recent = db.list("SELECT d.* FROM documents d WHERE $whereClause ORDER BY d.updated_at DESC LIMIT 5", *argArray) { c -> Document.of(c) }
+
         return Stats(
-            total = docs.size,
-            byStatus = STATUS_LABELS.keys.associateWith { s -> docs.count { it.status == s } },
-            byDepartment = docs.groupingBy { d -> d.departmentId?.let(depts::get) ?: "بدون قسم" }.eachCount().toList().sortedByDescending { it.second },
-            byType = docs.groupingBy { it.docType ?: "غير مصنف" }.eachCount().toList().sortedByDescending { it.second },
-            typeSizes = docs.groupBy { it.docType ?: "غير مصنف" }.mapValues { (_, v) -> v.sumOf { it.fileSize } },
-            byMonth = docs.groupingBy { it.createdAt.take(7) }.eachCount().toList().sortedBy { it.first }.takeLast(6),
-            totalSize = docs.sumOf { it.fileSize },
-            pendingApprovals = if (u.role == "admin") db.count("SELECT COUNT(*) FROM approval_requests WHERE status = 'pending'")
-            else db.count("SELECT COUNT(*) FROM approval_requests WHERE status = 'pending' AND assigned_to_id = ?", u.id),
-            users = db.count("SELECT COUNT(*) FROM users"),
-            recent = docs.take(5),
+            total = total,
+            byStatus = byStatus,
+            byDepartment = byDepartment,
+            byType = byType,
+            typeSizes = typeSizes,
+            byMonth = byMonth,
+            totalSize = totalSize,
+            pendingApprovals = pendingApprovals,
+            users = users,
+            recent = recent,
         )
     }
 }
 
 /** Arabic search normalization — same rules as the desktop (src/lib/arabic.ts). */
 object Arabic {
-    private val tashkeel = Regex("[ً-ْٰـ]")
     private val stop = setOf("من", "في", "عن", "على", "الى", "حتى", "ثم", "او", "و", "ف", "ب", "ك", "ل", "ان", "قد", "هذا", "هذه", "التي", "الذي", "مع")
 
-    fun normalize(s: String) = s.lowercase().replace(tashkeel, "").replace(Regex("[أإآٱ]"), "ا")
-        .replace('ة', 'ه').replace('ى', 'ي').replace('ؤ', 'و').replace('ئ', 'ي')
-        .map { if (it in '٠'..'٩') '0' + (it - '٠') else it }.joinToString("")
+    fun normalize(s: String): String {
+        val len = s.length
+        val sb = StringBuilder(len)
+        for (i in 0 until len) {
+            val ch = s[i]
+            if (ch in 'ً'..'ْ' || ch == 'ٰ' || ch == 'ـ') continue
+            when (ch) {
+                'أ', 'إ', 'آ', 'ٱ' -> sb.append('ا')
+                'ة' -> sb.append('ه')
+                'ى' -> sb.append('ي')
+                'ؤ' -> sb.append('و')
+                'ئ' -> sb.append('ي')
+                in '٠'..'٩' -> sb.append('0' + (ch - '٠'))
+                in 'A'..'Z' -> sb.append(ch.lowercaseChar())
+                else -> sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
 
     /** Normalized, light-stemmed terms: "المستندات" → "مستند". */
     fun terms(q: String): List<String> = normalize(q).split(Regex("\\s+")).filter { it.isNotBlank() && it !in stop }.map(::stem)

@@ -42,11 +42,13 @@ object Enhance {
         val hist = IntArray(256)
 
         // 1) divide by the estimated paper colour — removes shadows and uneven light
+        val bgOut = FloatArray(3)
         for (y in 0 until h) for (x in 0 until w) {
             val i = y * w + x
             val p = px[i]
             val pr = (p shr 16 and 255) / 255f; val pg = (p shr 8 and 255) / 255f; val pb = (p and 255) / 255f
-            var br = bg.r(x, y); var bgc = bg.g(x, y); var bb = bg.b(x, y)
+            bg.sampleRgb(x, y, bgOut)
+            var br = bgOut[0]; var bgc = bgOut[1]; var bb = bgOut[2]
             if (abs(pr - br) < EQUAL_EPS && abs(pg - bgc) < EQUAL_EPS && abs(pb - bb) < EQUAL_EPS) { br = pr; bgc = pg; bb = pb }
             val dr = (pr / max(br, 1e-3f)).coerceIn(0f, 1f)
             val dg = (pg / max(bgc, 1e-3f)).coerceIn(0f, 1f)
@@ -61,11 +63,16 @@ object Enhance {
         val black = bp / 255f
         val span = max(1f - black, 1e-3f)
 
+        // Precompute LUT for 256 byte values: eliminates millions of Math.pow calls per page
+        val contrastLut = FloatArray(256) { b ->
+            contrast(((b / 255f - black) / span).coerceIn(0f, 1f))
+        }
+
         for (i in out.indices) {
             val d = out[i]
-            var cr = contrast((((d shr 16 and 255) / 255f - black) / span).coerceIn(0f, 1f))
-            var cg = contrast((((d shr 8 and 255) / 255f - black) / span).coerceIn(0f, 1f))
-            var cb = contrast((((d and 255) / 255f - black) / span).coerceIn(0f, 1f))
+            var cr = contrastLut[d shr 16 and 255]
+            var cg = contrastLut[d shr 8 and 255]
+            var cb = contrastLut[d and 255]
             // 3) whitening: near-white paper becomes clean white
             if (luma(cr, cg, cb) > WHITE_LUMA) { cr = min(cr * WHITEN, 1f); cg = min(cg * WHITEN, 1f); cb = min(cb * WHITEN, 1f) }
             out[i] = when (mode) {
@@ -172,6 +179,21 @@ object Enhance {
             val top = a[y0 * gw + x0] * (1 - ax) + a[y0 * gw + x1] * ax
             val bot = a[y1 * gw + x0] * (1 - ax) + a[y1 * gw + x1] * ax
             return top * (1 - ay) + bot * ay
+        }
+
+        fun sampleRgb(x: Int, y: Int, out: FloatArray) {
+            val fx = (x.toFloat() / w * gw - 0.5f).coerceIn(0f, gw - 1f)
+            val fy = (y.toFloat() / h * gh - 0.5f).coerceIn(0f, gh - 1f)
+            val x0 = fx.toInt(); val y0 = fy.toInt()
+            val x1 = min(x0 + 1, gw - 1); val y1 = min(y0 + 1, gh - 1)
+            val ax = fx - x0; val ay = fy - y0
+            val idx00 = y0 * gw + x0; val idx01 = y0 * gw + x1
+            val idx10 = y1 * gw + x0; val idx11 = y1 * gw + x1
+            val w1 = 1f - ax; val w2 = ax
+            val wy1 = 1f - ay; val wy2 = ay
+            out[0] = (cr[idx00] * w1 + cr[idx01] * w2) * wy1 + (cr[idx10] * w1 + cr[idx11] * w2) * wy2
+            out[1] = (cg[idx00] * w1 + cg[idx01] * w2) * wy1 + (cg[idx10] * w1 + cg[idx11] * w2) * wy2
+            out[2] = (cb[idx00] * w1 + cb[idx01] * w2) * wy1 + (cb[idx10] * w1 + cb[idx11] * w2) * wy2
         }
 
         fun r(x: Int, y: Int) = sample(cr, x, y)

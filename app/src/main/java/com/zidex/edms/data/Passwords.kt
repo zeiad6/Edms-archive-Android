@@ -60,29 +60,30 @@ object Passwords {
         val x = IntArray(blockInts)
         val v = IntArray(blockInts * n)
         val scratch = IntArray(blockInts)
+        val blockMixX = IntArray(16)
         for (i in 0 until p) {
             val off = i * 128 * r
             for (k in 0 until blockInts) x[k] = le32(b, off + k * 4)
             // ROMix
             for (j in 0 until n) {
                 System.arraycopy(x, 0, v, j * blockInts, blockInts)
-                blockMix(x, scratch, r)
+                blockMix(x, scratch, blockMixX, r)
             }
             for (j in 0 until n) {
                 val idx = x[(2 * r - 1) * 16] and (n - 1)
                 for (k in 0 until blockInts) x[k] = x[k] xor v[idx * blockInts + k]
-                blockMix(x, scratch, r)
+                blockMix(x, scratch, blockMixX, r)
             }
             for (k in 0 until blockInts) put32(b, off + k * 4, x[k])
         }
         return pbkdf2(pass, b, 1, dkLen)
     }
 
-    private fun blockMix(b: IntArray, y: IntArray, r: Int) {
-        val x = IntArray(16)
+    private fun blockMix(b: IntArray, y: IntArray, x: IntArray, r: Int) {
         System.arraycopy(b, (2 * r - 1) * 16, x, 0, 16)
         for (i in 0 until 2 * r) {
-            for (k in 0 until 16) x[k] = x[k] xor b[i * 16 + k]
+            val bOff = i * 16
+            for (k in 0 until 16) x[k] = x[k] xor b[bOff + k]
             salsa8(x)
             // even blocks → first half, odd blocks → second half
             val dst = (i / 2 + (i % 2) * r) * 16
@@ -91,28 +92,38 @@ object Passwords {
         System.arraycopy(y, 0, b, 0, 32 * r)
     }
 
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun rotl(a: Int, s: Int) = (a shl s) or (a ushr (32 - s))
+
     private fun salsa8(b: IntArray) {
-        val x = b.copyOf()
-        fun rotl(a: Int, s: Int) = (a shl s) or (a ushr (32 - s))
+        var x0 = b[0]; var x1 = b[1]; var x2 = b[2]; var x3 = b[3]
+        var x4 = b[4]; var x5 = b[5]; var x6 = b[6]; var x7 = b[7]
+        var x8 = b[8]; var x9 = b[9]; var x10 = b[10]; var x11 = b[11]
+        var x12 = b[12]; var x13 = b[13]; var x14 = b[14]; var x15 = b[15]
+
         repeat(4) {
-            x[4] = x[4] xor rotl(x[0] + x[12], 7); x[8] = x[8] xor rotl(x[4] + x[0], 9)
-            x[12] = x[12] xor rotl(x[8] + x[4], 13); x[0] = x[0] xor rotl(x[12] + x[8], 18)
-            x[9] = x[9] xor rotl(x[5] + x[1], 7); x[13] = x[13] xor rotl(x[9] + x[5], 9)
-            x[1] = x[1] xor rotl(x[13] + x[9], 13); x[5] = x[5] xor rotl(x[1] + x[13], 18)
-            x[14] = x[14] xor rotl(x[10] + x[6], 7); x[2] = x[2] xor rotl(x[14] + x[10], 9)
-            x[6] = x[6] xor rotl(x[2] + x[14], 13); x[10] = x[10] xor rotl(x[6] + x[2], 18)
-            x[3] = x[3] xor rotl(x[15] + x[11], 7); x[7] = x[7] xor rotl(x[3] + x[15], 9)
-            x[11] = x[11] xor rotl(x[7] + x[3], 13); x[15] = x[15] xor rotl(x[11] + x[7], 18)
-            x[1] = x[1] xor rotl(x[0] + x[3], 7); x[2] = x[2] xor rotl(x[1] + x[0], 9)
-            x[3] = x[3] xor rotl(x[2] + x[1], 13); x[0] = x[0] xor rotl(x[3] + x[2], 18)
-            x[6] = x[6] xor rotl(x[5] + x[4], 7); x[7] = x[7] xor rotl(x[6] + x[5], 9)
-            x[4] = x[4] xor rotl(x[7] + x[6], 13); x[5] = x[5] xor rotl(x[4] + x[7], 18)
-            x[11] = x[11] xor rotl(x[10] + x[9], 7); x[8] = x[8] xor rotl(x[11] + x[10], 9)
-            x[9] = x[9] xor rotl(x[8] + x[11], 13); x[10] = x[10] xor rotl(x[9] + x[8], 18)
-            x[12] = x[12] xor rotl(x[15] + x[14], 7); x[13] = x[13] xor rotl(x[12] + x[15], 9)
-            x[14] = x[14] xor rotl(x[13] + x[12], 13); x[15] = x[15] xor rotl(x[14] + x[13], 18)
+            x4 = x4 xor rotl(x0 + x12, 7); x8 = x8 xor rotl(x4 + x0, 9)
+            x12 = x12 xor rotl(x8 + x4, 13); x0 = x0 xor rotl(x12 + x8, 18)
+            x9 = x9 xor rotl(x5 + x1, 7); x13 = x13 xor rotl(x9 + x5, 9)
+            x1 = x1 xor rotl(x13 + x9, 13); x5 = x5 xor rotl(x1 + x13, 18)
+            x14 = x14 xor rotl(x10 + x6, 7); x2 = x2 xor rotl(x14 + x10, 9)
+            x6 = x6 xor rotl(x2 + x14, 13); x10 = x10 xor rotl(x6 + x2, 18)
+            x3 = x3 xor rotl(x15 + x11, 7); x7 = x7 xor rotl(x3 + x15, 9)
+            x11 = x11 xor rotl(x7 + x3, 13); x15 = x15 xor rotl(x11 + x7, 18)
+            x1 = x1 xor rotl(x0 + x3, 7); x2 = x2 xor rotl(x1 + x0, 9)
+            x3 = x3 xor rotl(x2 + x1, 13); x0 = x0 xor rotl(x3 + x2, 18)
+            x6 = x6 xor rotl(x5 + x4, 7); x7 = x7 xor rotl(x6 + x5, 9)
+            x4 = x4 xor rotl(x7 + x6, 13); x5 = x5 xor rotl(x4 + x7, 18)
+            x11 = x11 xor rotl(x10 + x9, 7); x8 = x8 xor rotl(x11 + x10, 9)
+            x9 = x9 xor rotl(x8 + x11, 13); x10 = x10 xor rotl(x9 + x8, 18)
+            x12 = x12 xor rotl(x15 + x14, 7); x13 = x13 xor rotl(x12 + x15, 9)
+            x14 = x14 xor rotl(x13 + x12, 13); x15 = x15 xor rotl(x14 + x13, 18)
         }
-        for (i in 0 until 16) b[i] += x[i]
+
+        b[0] += x0; b[1] += x1; b[2] += x2; b[3] += x3
+        b[4] += x4; b[5] += x5; b[6] += x6; b[7] += x7
+        b[8] += x8; b[9] += x9; b[10] += x10; b[11] += x11
+        b[12] += x12; b[13] += x13; b[14] += x14; b[15] += x15
     }
 
     /** PBKDF2-HMAC-SHA256 on raw bytes (the platform factory only takes char[] passwords). */

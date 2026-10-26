@@ -18,6 +18,16 @@ import java.util.Calendar
  * thumbnails under `storage/thumbnails/...jpg`), so backups move both ways.
  */
 object Storage {
+    private val thumbCache = object : android.util.LruCache<String, Bitmap>(
+        (Runtime.getRuntime().maxMemory() / 1024 / 8).toInt().coerceIn(4096, 32768)
+    ) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
+    }
+
+    fun clearThumbCache() {
+        thumbCache.evictAll()
+    }
+
     fun root(ctx: Context) = File(ctx.filesDir, "storage")
 
     /** Resolve a storage key, refusing anything that escapes the storage root. */
@@ -83,11 +93,16 @@ object Storage {
     }.getOrNull()
 
     fun decodeSampled(f: File, maxSide: Int): Bitmap? {
+        val cacheKey = "${f.path}:$maxSide"
+        thumbCache.get(cacheKey)?.let { return it }
+
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, o)
         var s = 1
         while (maxOf(o.outWidth, o.outHeight) / (s * 2) >= maxSide) s *= 2
-        return BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = s })
+        val bmp = BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = s })
+        if (bmp != null) thumbCache.put(cacheKey, bmp)
+        return bmp
     }
 
     fun renderPdfPage(f: File, page: Int, width: Int): Bitmap? =

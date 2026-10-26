@@ -11,6 +11,7 @@ class PureLogicTest {
     fun arabicSearchNormalizesAndStems() {
         assertEquals(listOf("مستند"), Arabic.terms("المستندات"))
         assertEquals("احمد مدرسه 123", Arabic.normalize("أحمد مَدرسة ١٢٣"))
+        assertEquals("تقرير شامل 2024", Arabic.normalize("تَـقْـرِيرٌ شَامِلٌ ٢٠٢٤"))
         val hay = Arabic.normalize("قرار بتعديل الهيكل التنظيمي للمستندات")
         assertTrue(Arabic.terms("المستندات التنظيمي").all { it in hay })
     }

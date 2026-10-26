@@ -37,8 +37,8 @@ android {
         targetSdk = 35
         // Keep versionName in step with the desktop release tag (vX.Y.Z):
         // the in-app updater compares it against the latest GitHub release.
-        versionCode = 1
-        versionName = "1.0.1"
+        versionCode = 2
+        versionName = "1.0.2"
         buildConfigField("String", "UPDATE_REPO", "\"zeiad6/Edms-archive\"")
     }
 
